@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div>
+        <form id="form">
+            <h1>Registro</h1>
+            <div>
+                <label for="email">Email</label>
+                <input id="email" name="email" autocomplete="off" type="email" placeholder="example@example.com" required></input>
+            </div>
+            <div>
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" placeholder="********" required></input>
+            </div>
+            <button type="submit">
+                Crear y Logearse
+            </button>
+            <button id="iniciarSesion" type="button">
+                Iniciar Sesion
+            </button>
+        </form>
+    </div>
+    <script type="module" src="./register.ts"></script>
+</body>
+</html>
