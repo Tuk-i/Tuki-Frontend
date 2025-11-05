@@ -77,3 +77,50 @@ export const Put = async <IInputDTO, IDTO>(
     return { error: { mensaje: "Error de conexión con el servidor" } };
   }
 }
+
+// PATCH
+export const Patch = async <IDTO>(
+  API_URL: string
+): Promise<{ data?: IDTO; error?: IErrorDTO }> => {
+  try {
+    const respuesta = await fetch(API_URL, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await respuesta.json();
+
+    if (!respuesta.ok || "mensaje" in data) {
+      return { error: data };
+    }
+
+    return { data };
+  } catch (error) {
+    return { error: { mensaje: "Error de conexión con el servidor" } };
+  }
+};
+
+export const Delete = async (
+  API_URL: string
+): Promise<{ data?: string; error?: IErrorDTO }> => {
+  try {
+    const respuesta = await fetch(API_URL, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    const data = await respuesta.text(); // puede ser string plano
+
+    if (!respuesta.ok || data.includes("mensaje")) {
+      return { error: { mensaje: data } };
+    }
+
+    return { data };
+  } catch (error) {
+    return { error: { mensaje: "Error de conexión con el servidor" } };
+  }
+};
