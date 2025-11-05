@@ -1,17 +1,15 @@
 import type { IErrorDTO } from "@models/IErrorDTO";
-import type { IUsuarioDTO } from "@models/IUsuarioDTO";
-import type { IUsuarioPostDTO } from "@models/IUsuarioPostDTO";
 
-
-
-export const user_Post = async (
-  credenciales: IUsuarioPostDTO, API_URL: string
-): Promise<{ usuario?: IUsuarioDTO; error?: IErrorDTO }> => {
+// Get
+export const Get = async <IDTO>(
+  API_URL: string
+): Promise<{ data?: IDTO; error?: IErrorDTO }> => {
   try {
     const respuesta = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credenciales),
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
+      }
     });
 
     const data = await respuesta.json();
@@ -20,9 +18,62 @@ export const user_Post = async (
       return { error: data };
     }
 
-    return { usuario: data };
+    return { data };
   } catch (error) {
-    console.error(`Error: ${error}`);
     return { error: { mensaje: "Error de conexión con el servidor" } };
   }
 };
+
+
+// Post
+export const Post = async <IPostDTO, IDTO> (
+  frontendDTO: IPostDTO, API_URL: string
+): Promise<{ data?: IDTO; error?: IErrorDTO }> => {
+  try {
+    const respuesta = await fetch(API_URL, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify(frontendDTO),
+    })
+
+    const data = await respuesta.json()
+
+    if (!respuesta.ok || "mensaje" in data) {
+      
+      return { error: data }
+    }
+
+    return { data }
+  } catch (error) {
+    return { error: { mensaje: "Error de conexión con el servidor" } }
+  }
+}
+
+// Put
+export const Put = async <IInputDTO, IDTO>(
+  frontendDTO: IInputDTO, API_URL: string
+): Promise<{ data?: IDTO; error?: IErrorDTO }> =>{
+  try{
+    const respuesta = await fetch(API_URL, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(frontendDTO)
+      })
+
+    const data = await respuesta.json()
+    
+    if (!respuesta.ok || "mensaje" in data) {
+      
+      return { error: data }
+    }
+
+    return {data}
+
+  } catch (error) {
+    return { error: { mensaje: "Error de conexión con el servidor" } };
+  }
+}

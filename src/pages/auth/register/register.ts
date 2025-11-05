@@ -1,5 +1,8 @@
-import { user_Post } from "services/api";
-import { iniciarSesion } from "@utils/login";
+import { Post } from "services/api";
+import { iniciarSesion } from "services/Metodos/login";
+import type { IErrorDTO } from "@models/IErrorDTO";
+import type { IUsuarioInputDTO } from "@models/IUsuarios/IUsuarioInputDTO";
+import type { IUsuarioDTO } from "@models/IUsuarios/IUsuarioDTO";
 const API_URL = import.meta.env.VITE_API_URL_Users_create;
 
 const iniciarSesionBoton = document.getElementById("iniciarSesion") as HTMLButtonElement;
@@ -19,26 +22,33 @@ loginForm.addEventListener("submit", async (e:SubmitEvent)=>{
     e.preventDefault()
     const email = emailInput.value.trim()
     const password = passwordInput.value.trim()
-    const mensajeError = document.createElement("p") as HTMLParagraphElement;
+    const mensajeError = document.getElementById("error") as HTMLDivElement
+    
 
     if (!email || !password){
         mensajeError.textContent = "No están todos los elementos"
+        mensajeError.classList.remove("ocultar")
         return
     }
 
-    
-    const { usuario, error } = await user_Post({email, password},API_URL);
+
+    mensajeError.classList.add("ocultar");
+    mensajeError.textContent = "";
+    const { data :usuario, error} = await Post<IUsuarioInputDTO, IUsuarioDTO>({email, password},API_URL);
+
+    if (error){
+          const mostrarError: IErrorDTO ={
+            mensaje: error.mensaje
+          }
+          mensajeError.textContent = mostrarError.mensaje
+          mensajeError.classList.remove("ocultar")
+          return
+        }
 
     if (usuario){
+        mensajeError.classList.add("ocultar");
+        mensajeError.textContent = "";
         await iniciarSesion({email, password}, mensajeError)
-    }else{
-        const mensajeError = document.getElementById("error") as HTMLParagraphElement;
-        // if (error){
-        //     mensajeError.textContent = error.mensaje
-        // }else{
-        //     mensajeError.textContent = "Error desconocido"
-        // }
-        mensajeError.textContent = error?.mensaje || "Error desconocido";
-        document.body.appendChild(mensajeError)
     }
+    
 })

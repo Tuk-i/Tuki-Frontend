@@ -1,6 +1,7 @@
-import type { Rol } from "@models/Rol"
+
+import type { Rol } from "@models/IUsuarios/Rol";
 import { navigate } from "./navigate"
-import type { IUsuarioDTO } from "@models/IUsuarioDTO";
+import type { IUsuarioLogin } from "@models/IUsuarios/IUsuarioLogin";
 
 
 export const checkAuthUsers = (rol: Rol, route: string)=>{
@@ -8,28 +9,12 @@ export const checkAuthUsers = (rol: Rol, route: string)=>{
 
     if (!user){
         // navigate('/src/pages/auth/login/login.html')
-        navigate(route)
+        navigate('/src/pages/auth/login/login.html')
         return
     }
-    const parseUser: IUsuarioDTO = JSON.parse(user)
+    const parseUser: IUsuarioLogin = JSON.parse(user)
     if (parseUser.loggedIn && parseUser.rol != rol){
         navigate(route)
         return
     }
 }
-
-
-// export const checkAuthUsers = (rol: Rol, route: string): void => {
-//   const user = localStorage.getItem("userData");
-//   if (!user) {
-//     navigate(route);
-//     return;
-//   }
-
-//   const parseUser: IUsuarioDTO = JSON.parse(user);
-//   const noAutorizado = !parseUser.loggedIn || parseUser.rol !== rol;
-
-//   if (noAutorizado) {
-//     navigate(route);
-//   }
-// };

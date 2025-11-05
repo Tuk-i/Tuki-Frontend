@@ -1,6 +1,6 @@
 import type { Rol } from "./Rol"
 
-export interface IUsuarioDTO{
+export interface IUsuarioLogin{
     id: number
     email: string
     rol: Rol

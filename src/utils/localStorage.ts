@@ -1,8 +1,15 @@
-import type { IUsuarioDTO } from "@models/IUsuarioDTO"
+import type { IUsuarioDTO } from "@models/IUsuarios/IUsuarioDTO"
+import type { IUsuarioLogin } from "@models/IUsuarios/IUsuarioLogin"
 
 
 export const saveUser = (userData: IUsuarioDTO) =>{
-        const parse = JSON.stringify(userData)
+        const sesionUsuario: IUsuarioLogin = {
+            id: userData.id,
+            email: userData.email,
+            rol: userData.rol,
+            loggedIn: true
+        }
+        const parse = JSON.stringify(sesionUsuario)
         localStorage.setItem("userData",parse)
     }
 

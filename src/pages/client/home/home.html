@@ -4,11 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Soy cliente</h1>
 
-    <button id="button_logout">Logout</button>
+    <div>
+        <form id="form">
+            <h1>Soy cliente</h1>
+            <h2>Editar Usuario</h2>
+            <div>
+                <label for="email">Modificar Email</label>
+                <input id="email" name="email" autocomplete="off" type="email" placeholder="example@example.com" ></input>
+            </div>
+            <div>
+                <label for="password">Modificar Contraseña</label>
+                <input id="password" name="password" type="password" placeholder="********" ></input>
+            </div>
+            <div id="error" class="error-message ocultar">
+                Error
+            </div>
+            <button type="submit">
+                Enviar
+            </button>
+            <button id="button_logout">
+                Logout
+            </button>
+        </form>
+    </div>
 
     <script type="module" src="home.ts"></script>
 </body>

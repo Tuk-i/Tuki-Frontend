@@ -9,7 +9,7 @@ buttonLogout.addEventListener('click',()=>{
 })
 
 const initPage=()=>{
-    checkAuthUsers("ADMINISTRADOR","/src/pages/auth/login/login.html")
+    checkAuthUsers("ADMINISTRADOR","/src/pages/client/home/home.html")
     // const user = localStorage.getItem("userData")
     // const h2 = document.createElement("h2")
     // h2.textContent = `Usuario: ${user}`
