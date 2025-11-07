@@ -24,6 +24,7 @@ export async function iniciarSesion(credenciales: IUsuarioInputDTO, mensajeError
     if (usuario) {
       const usuarioSesion: IUsuarioLogin = {
         id: usuario.id,
+        nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol,
         loggedIn: true

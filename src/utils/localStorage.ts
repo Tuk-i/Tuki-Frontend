@@ -5,6 +5,7 @@ import type { IUsuarioLogin } from "@models/IUsuarios/IUsuarioLogin"
 export const saveUser = (userData: IUsuarioDTO) =>{
         const sesionUsuario: IUsuarioLogin = {
             id: userData.id,
+            nombre: userData.nombre,
             email: userData.email,
             rol: userData.rol,
             loggedIn: true
