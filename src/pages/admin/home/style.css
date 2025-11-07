@@ -1,0 +1,114 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+cabecera{
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-8);
+    max-width: 1300px;
+    margin: auto;
+}
+
+.cabecera__incio{
+    display: flex;
+    gap: var(--space-5);
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 1;
+}
+
+.site-header__mark{
+    width: 50px; 
+    height: 50px; 
+    border-radius: 50%; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    background: linear-gradient(135deg, var(--primary), var(--accent));  
+    color: #fff; 
+    font-weight: 800; 
+}
+
+.cabecera__nav{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.cabecera__nav-boton{
+    display: none;
+    border: none;
+    border-radius: .4rem;
+    padding: var(--space-3);
+    margin-top: var(--space-3);
+    background-color: var(--color-nav);
+}
+.cabecera__nav-boton:hover{
+    cursor: pointer;
+    box-shadow: 0 0 5px rgb(74, 96, 94), 0 0 7.5px rgb(60, 121, 116), 0 0 10px rgb(88, 167, 160);
+    transition: all 0.1s ease-in-out;
+}
+
+.cabecera__nav-lista{
+    display: flex;
+    list-style: none;
+    gap: var(--space-5 );
+}
+.cabecera__nav-item{
+    padding: var(--space-2);
+    font-weight: bold;
+}
+.cabecera__nav-item:hover{
+    cursor: pointer;
+    background-color: var(--fondo-hover);
+    box-shadow: var(--fondo-hover);
+    border-radius: .6rem;
+}
+.cabecera__nav-item a{
+    text-decoration: none;
+    color: var(--text);
+}
+
+main {
+  padding-top: 80px;
+  height: calc(100vh - 80px);
+  width: 100%;
+  display: grid;
+  gap: 16px;
+}
+
+.Container {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 16px;
+  height: 100%;
+  width: 100%;
+}
+
+.sideBar {
+  grid-column: 1 / 4;
+  grid-row: 1 / 7;
+  background-color: #3b82f6;
+}
+
+.lienzo {
+  grid-column: 4 / 13;
+  grid-row: 1 / 7;
+  background-color: #ef4444;
+}
