@@ -1,5 +1,5 @@
 import type { IUsuarioLogin } from "@models/IUsuarios/IUsuarioLogin";
-import { checkAuthUsers } from "@utils/auth";
+import { navigate } from "@utils/navigate";
 import { iniciarSesion } from "services/Metodos/login";
 
 const crearUsuarioBoton = document.getElementById("crearUsuario") as HTMLButtonElement;
@@ -36,16 +36,31 @@ loginForm.addEventListener("submit", async (e:SubmitEvent)=>{
 
 
 // Proteccion de rutas
-const initPage=()=>{
-    const userData = localStorage.getItem("userData")
+// const initPage=()=>{
+//     const userData = localStorage.getItem("userData")
 
-    if (userData){
-      const user: IUsuarioLogin = JSON.parse(userData)
-      if (user.rol === "ADMINISTRADOR"){
-        checkAuthUsers("CLIENTE",'/src/pages/admin/home/home.html')
-      }else(user.rol === "CLIENTE","/src/pages/client/home/home.html")
+//     if (userData){
+//       const user: IUsuarioLogin = JSON.parse(userData)
+//       if (user.rol === "ADMINISTRADOR"){
+//         checkAuthUsers("CLIENTE",'/src/pages/admin/home/home.html')
+//       }else(user.rol === "CLIENTE","/src/pages/store/home/home.html")
+//     }
+// }
+
+const initPage = () => {
+  const userData = localStorage.getItem("userData");
+
+  if (userData) {
+    const user: IUsuarioLogin = JSON.parse(userData);
+
+    if (user.rol === "ADMINISTRADOR") {
+      navigate("/src/pages/admin/home/home.html");
+    } else if (user.rol === "CLIENTE") {
+      navigate("/src/pages/store/home/home.html");
     }
-}
+  }
+};
+
 
 initPage()
 
