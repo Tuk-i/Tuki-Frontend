@@ -14,18 +14,20 @@ iniciarSesionBoton.addEventListener("click", () => {
 
 const loginForm = document.getElementById("form") as HTMLFormElement
 
+const nameInput = document.getElementById("name") as HTMLInputElement
 const emailInput = document.getElementById("email") as HTMLInputElement
 const passwordInput = document.getElementById("password") as HTMLInputElement
 
 
 loginForm.addEventListener("submit", async (e:SubmitEvent)=>{
     e.preventDefault()
+    const nombre = nameInput.value.trim()
     const email = emailInput.value.trim()
     const password = passwordInput.value.trim()
     const mensajeError = document.getElementById("error") as HTMLDivElement
     
 
-    if (!email || !password){
+    if (!email || !password || !nombre){
         mensajeError.textContent = "No están todos los elementos"
         mensajeError.classList.remove("ocultar")
         return
@@ -34,7 +36,7 @@ loginForm.addEventListener("submit", async (e:SubmitEvent)=>{
 
     mensajeError.classList.add("ocultar");
     mensajeError.textContent = "";
-    const { data :usuario, error} = await Post<IUsuarioInputDTO, IUsuarioDTO>({email, password},API_URL);
+    const { data :usuario, error} = await Post<IUsuarioInputDTO, IUsuarioDTO>({nombre, email, password},API_URL);
 
     if (error){
           const mostrarError: IErrorDTO ={

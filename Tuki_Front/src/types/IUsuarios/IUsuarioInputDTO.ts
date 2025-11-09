@@ -1,5 +1,5 @@
 export interface IUsuarioInputDTO {
-    noombre?: string
+    nombre?: string
     email?: string
     password?: string
 }
