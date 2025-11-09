@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tuk-i | Mis pedidos</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module">
+      import "./orders.ts";
+    </script>
+  </head>
+  <body>
+    <header class="orders-header">
+      <a class="orders-header__back" href="../../store/home/home.html">
+        <i class="ri-arrow-left-line" aria-hidden="true"></i>
+        <span>Volver al catálogo</span>
+      </a>
+      <h1 class="orders-header__title">Mis pedidos</h1>
+    </header>
+
+    <main class="orders-main">
+      <section
+        id="orders-list"
+        class="orders-list"
+        aria-live="polite"
+        aria-busy="false"
+      ></section>
+    </main>
+
+    <div class="order-modal" id="order-modal" aria-hidden="true">
+      <div class="order-modal__backdrop" data-close="true"></div>
+      <article
+        class="order-modal__dialog"
+        id="order-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-modal-title"
+      >
+        <button
+          type="button"
+          class="order-modal__close"
+          data-close="true"
+          aria-label="Cerrar"
+        >
+          <i class="ri-close-line" aria-hidden="true"></i>
+        </button>
+        <div class="order-modal__content" id="order-modal-content"></div>
+      </article>
+    </div>
+  </body>
+</html>
