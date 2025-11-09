@@ -1,3 +1,6 @@
+import { Get } from "../../../services/api.ts"
+import { logoutUser } from "@utils/localStorage"
+
 interface ProductItem {
   id: string
   name: string
@@ -13,88 +16,10 @@ interface CartItem {
   quantity: number
 }
 
-const products: ProductItem[] = [
-  {
-    id: "classic-burger",
-    name: "Hamburguesa Clásica",
-    description:
-      "Pan artesanal, medallón de carne, queso cheddar, lechuga fresca y nuestra salsa especial.",
-    price: 12.5,
-    category: "Hamburguesas",
-    image: new URL("./assets/—Pngtree—hamburger_15881307.png", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "pancho-premium",
-    name: "Pancho Premium",
-    description:
-      "Salchicha de res ahumada, pan brioche tostado y topping de cebolla caramelizada.",
-    price: 6.75,
-    category: "Street Food",
-    image: new URL("./assets/pancho.png", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "papas-crispy",
-    name: "Papas Crinkle",
-    description:
-      "Corte crinkle frito en aceite vegetal, con hierbas provenzales y alioli casero.",
-    price: 4.5,
-    category: "Acompañamientos",
-    image: new URL("./assets/pngwing.png", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "sandwich-sanji",
-    name: "Sándwich Sanji",
-    description:
-      "Inspirado en el chef del East Blue: pollo teriyaki, vegetales frescos y pan de centeno.",
-    price: 9.95,
-    category: "Sandwiches",
-    image: new URL("./assets/aesthetic-one-piece-sanji-clipart-sticker.png", import.meta.url).href,
-    available: false,
-  },
-  {
-    id: "pizza-napolitana",
-    name: "Pizza Napolitana",
-    description:
-      "Masa madre horneada en piedra con salsa de tomate italiana, mozzarella y albahaca.",
-    price: 15.2,
-    category: "Pizzas",
-    image: new URL("./assets/pizza.com", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "ensalada-chef",
-    name: "Ensalada del Chef",
-    description:
-      "Mix de hojas verdes, vegetales orgánicos, pollo grillado y vinagreta cítrica.",
-    price: 8.4,
-    category: "Ensaladas",
-    image: new URL("./assets/chef.jpg", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "combo-familiar",
-    name: "Combo Familiar",
-    description:
-      "Hamburguesas dobles, papas grandes y gaseosas artesanales para compartir en familia.",
-    price: 28.9,
-    category: "Combos",
-    image: new URL("./assets/pancho.com", import.meta.url).href,
-    available: true,
-  },
-  {
-    id: "wrap-vegetariano",
-    name: "Wrap Vegetariano",
-    description:
-      "Wrap integral con hummus, vegetales grillados, hojas verdes y reducción balsámica.",
-    price: 7.6,
-    category: "Sandwiches",
-    image: new URL("./assets/huevito.com", import.meta.url).href,
-    available: true,
-  },
-]
+const fallbackImage = new URL("./assets/pngwing.png", import.meta.url).href
+
+const PRODUCTS_API_URL = import.meta.env.VITE_API_URL_PRODUCTS
+const CATEGORIES_API_URL = import.meta.env.VITE_API_URL_CATEGORIES
 
 const cartStorageKey = "storeCartItems"
 
@@ -107,6 +32,7 @@ const sidebar = document.getElementById("sidebar") as HTMLElement
 const sidebarToggle = document.getElementById("sidebar-toggle") as HTMLButtonElement
 const sidebarClose = document.getElementById("sidebar-close") as HTMLButtonElement
 const cartBadge = document.getElementById("cart-badge") as HTMLSpanElement
+const logoutButton = document.getElementById("logout-button") as HTMLAnchorElement | null
 
 const state = {
   search: "",
@@ -114,59 +40,156 @@ const state = {
   sort: "name-asc",
 }
 
-const parseCart = (): CartItem[] => {
-  try {
-    const raw = localStorage.getItem(cartStorageKey)
-    if (!raw) return []
-    const parsed: CartItem[] = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed
-      .filter((item) => Boolean(item) && typeof item.id === "string")
-      .map((item) => ({
-        id: item.id,
-        quantity: typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0 ? item.quantity : 0,
-      }))
-  } catch (error) {
-    console.error("No se pudo leer el carrito", error)
-    return []
+let products: ProductItem[] = []
+let remoteCategories: string[] = []
+let isLoadingProducts = true
+let loadErrorMessage: string | null = null
+
+const readString = (value: unknown): string | undefined => {
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : undefined
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value)
+  }
+  return undefined
+}
+
+const readNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
+const readBoolean = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") {
+    return value
+  }
+  return undefined
+}
+
+const unwrapCollection = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) {
+    return value
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    const candidates = ["data", "items", "results", "content", "productos", "categoria", "categorias"]
+    for (const key of candidates) {
+      const candidate = record[key]
+      if (Array.isArray(candidate)) {
+        return candidate
+      }
+    }
+  }
+  return []
+}
+
+const normalizeCategory = (value: string | undefined): string | undefined => {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  return trimmed.length ? trimmed : undefined
+}
+
+const adaptCategoryValue = (value: unknown): string | undefined => {
+  if (typeof value === "string") {
+    return normalizeCategory(value)
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>
+    return normalizeCategory(
+      readString(record.nombre ?? record.name ?? record.titulo ?? record.descripcion ?? record.label)
+    )
+  }
+  return undefined
+}
+
+const adaptProduct = (value: unknown): ProductItem | null => {
+  if (!value || typeof value !== "object") {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+
+  const id = readString(record.id ?? record.productId ?? record.codigo ?? record.uuid)
+  const name = readString(record.name ?? record.nombre ?? record.titulo) ?? "Producto sin nombre"
+  const description =
+    readString(record.description ?? record.descripcion ?? record.detalle ?? record.resumen) ?? ""
+  const price = readNumber(record.price ?? record.precio ?? record.costo ?? record.valor) ?? 0
+  const category =
+    adaptCategoryValue(record.category ?? record.categoria ?? record.tipo ?? record.rubro) ?? "Sin categoría"
+  const image =
+    readString(
+      record.image ?? record.imagen ?? record.imagenUrl ?? record.imageUrl ?? record.urlImagen ?? record.foto
+    ) ?? fallbackImage
+  const available = readBoolean(record.available ?? record.disponible ?? record.activo) ?? true
+
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    name,
+    description,
+    price,
+    category,
+    image,
+    available,
   }
 }
 
-const saveCart = (items: CartItem[]) => {
-  localStorage.setItem(cartStorageKey, JSON.stringify(items))
+const adaptProducts = (value: unknown): ProductItem[] => {
+  const collection = unwrapCollection(value)
+  return collection
+    .map((item) => adaptProduct(item))
+    .filter((item): item is ProductItem => Boolean(item))
 }
 
-const updateCartBadge = () => {
-  const cartItems = parseCart()
-  const total = cartItems.reduce((acc, item) => acc + (item.quantity ?? 0), 0)
-  cartBadge.textContent = String(total)
+const adaptCategories = (value: unknown): string[] => {
+  const collection = unwrapCollection(value)
+  const parsed = collection
+    .map((item) => adaptCategoryValue(item))
+    .filter((item): item is string => Boolean(item))
+  return Array.from(new Set(parsed))
 }
 
-const addToCart = (productId: string) => {
-  const cartItems = parseCart()
-  const existingItem = cartItems.find((item) => item.id === productId)
-  if (existingItem) {
-    existingItem.quantity = (existingItem.quantity ?? 0) + 1
-  } else {
-    cartItems.push({ id: productId, quantity: 1 })
+const ensureActiveCategory = (available: string[]) => {
+  if (state.category !== "all" && !available.includes(state.category)) {
+    state.category = "all"
   }
-  saveCart(cartItems)
-  updateCartBadge()
+}
+
+const getAvailableCategories = (): string[] => {
+  if (remoteCategories.length) {
+    return remoteCategories
+  }
+  const derived = Array.from(new Set(products.map((product) => product.category))).filter(Boolean)
+  return derived
 }
 
 const buildCategories = () => {
-  const uniqueCategories = Array.from(new Set(products.map((product) => product.category)))
-  const categories = ["all", ...uniqueCategories]
+  const availableCategories = getAvailableCategories()
+  ensureActiveCategory(availableCategories)
 
   categoryList.innerHTML = ""
 
-  categories.forEach((category) => {
+  const categoriesToRender = ["all", ...availableCategories]
+
+  categoriesToRender.forEach((category) => {
     const listItem = document.createElement("li")
     const button = document.createElement("button")
 
     const isAll = category === "all"
     button.textContent = isAll ? "Todas" : category
     button.type = "button"
+    button.dataset.category = category
     button.classList.toggle("is-active", state.category === category)
     button.addEventListener("click", () => {
       state.category = category
@@ -183,15 +206,43 @@ const buildCategories = () => {
 }
 
 const updateActiveCategory = () => {
-  const buttons = categoryList.querySelectorAll("button")
+  const buttons = categoryList.querySelectorAll<HTMLButtonElement>("button[data-category]")
   buttons.forEach((button) => {
-    const isAll = button.textContent === "Todas"
-    const normalized = isAll ? "all" : button.textContent ?? ""
-    button.classList.toggle("is-active", normalized === state.category)
+    const buttonCategory = button.dataset.category ?? "all"
+    button.classList.toggle("is-active", buttonCategory === state.category)
   })
 }
 
 const renderProducts = () => {
+  productGrid.innerHTML = ""
+
+  if (isLoadingProducts) {
+    resultsCount.textContent = "Cargando productos..."
+    const loadingState = document.createElement("p")
+    loadingState.textContent = "Cargando productos..."
+    loadingState.className = "catalog__empty"
+    productGrid.appendChild(loadingState)
+    return
+  }
+
+  if (loadErrorMessage) {
+    resultsCount.textContent = "0 productos encontrados"
+    const errorState = document.createElement("p")
+    errorState.textContent = loadErrorMessage
+    errorState.className = "catalog__empty"
+    productGrid.appendChild(errorState)
+    return
+  }
+
+  if (!products.length) {
+    resultsCount.textContent = "0 productos encontrados"
+    const emptyState = document.createElement("p")
+    emptyState.textContent = "No hay productos disponibles en este momento."
+    emptyState.className = "catalog__empty"
+    productGrid.appendChild(emptyState)
+    return
+  }
+
   const normalizedSearch = state.search.trim().toLowerCase()
 
   const filtered = products.filter((product) => {
@@ -219,8 +270,6 @@ const renderProducts = () => {
   const total = sorted.length
   resultsCount.textContent = `${total} producto${total === 1 ? "" : "s"} encontrado${total === 1 ? "" : "s"}`
 
-  productGrid.innerHTML = ""
-
   if (!sorted.length) {
     const emptyState = document.createElement("p")
     emptyState.textContent = "No encontramos productos que coincidan con tu búsqueda."
@@ -238,7 +287,7 @@ const renderProducts = () => {
     imageWrapper.className = "product-card__image"
 
     const image = document.createElement("img")
-    image.src = product.image
+    image.src = product.image || fallbackImage
     image.alt = product.name
 
     const availability = document.createElement("span")
@@ -296,6 +345,101 @@ const renderProducts = () => {
   })
 }
 
+const parseCart = (): CartItem[] => {
+  try {
+    const raw = localStorage.getItem(cartStorageKey)
+    if (!raw) return []
+    const parsed: CartItem[] = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item) => Boolean(item) && typeof item.id === "string")
+      .map((item) => ({
+        id: item.id,
+        quantity:
+          typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
+            ? item.quantity
+            : 0,
+      }))
+  } catch (error) {
+    console.error("No se pudo leer el carrito", error)
+    return []
+  }
+}
+
+const saveCart = (items: CartItem[]) => {
+  localStorage.setItem(cartStorageKey, JSON.stringify(items))
+}
+
+const updateCartBadge = () => {
+  const cartItems = parseCart()
+  const total = cartItems.reduce((acc, item) => acc + (item.quantity ?? 0), 0)
+  cartBadge.textContent = String(total)
+}
+
+const addToCart = (productId: string) => {
+  const cartItems = parseCart()
+  const existingItem = cartItems.find((item) => item.id === productId)
+  if (existingItem) {
+    existingItem.quantity = (existingItem.quantity ?? 0) + 1
+  } else {
+    cartItems.push({ id: productId, quantity: 1 })
+  }
+  saveCart(cartItems)
+  updateCartBadge()
+}
+
+const loadCategories = async () => {
+  if (!CATEGORIES_API_URL) {
+    remoteCategories = []
+    buildCategories()
+    updateActiveCategory()
+    return
+  }
+
+  const { data, error } = await Get<unknown>(CATEGORIES_API_URL)
+  if (error) {
+    console.error("No se pudieron cargar las categorías", error)
+    remoteCategories = []
+  } else {
+    remoteCategories = adaptCategories(data)
+  }
+  buildCategories()
+  updateActiveCategory()
+}
+
+const loadProducts = async () => {
+  if (!PRODUCTS_API_URL) {
+    isLoadingProducts = false
+    loadErrorMessage = "No se configuró la URL del catálogo."
+    products = []
+    renderProducts()
+    return
+  }
+
+  isLoadingProducts = true
+  loadErrorMessage = null
+  renderProducts()
+
+  const { data, error } = await Get<unknown>(PRODUCTS_API_URL)
+
+  if (error) {
+    isLoadingProducts = false
+    loadErrorMessage = error.mensaje ?? "No pudimos cargar los productos."
+    products = []
+    renderProducts()
+    return
+  }
+
+  const adapted = adaptProducts(data)
+  products = adapted
+  isLoadingProducts = false
+  loadErrorMessage = null
+
+  buildCategories()
+  updateActiveCategory()
+  renderProducts()
+}
+
 const initEvents = () => {
   searchInput.addEventListener("input", (event) => {
     const target = event.target as HTMLInputElement
@@ -324,12 +468,27 @@ const initEvents = () => {
   })
 }
 
-const init = () => {
-  buildCategories()
-  renderProducts()
-  updateActiveCategory()
-  initEvents()
-  updateCartBadge()
+const initAuth = () => {
+  if (!logoutButton) {
+    return
+  }
+
+  logoutButton.addEventListener("click", (event) => {
+    event.preventDefault()
+    logoutUser()
+    window.location.href = "../../auth/login/login.html"
+  })
 }
 
-init()
+const init = async () => {
+  buildCategories()
+  updateActiveCategory()
+  renderProducts()
+  initEvents()
+  initAuth()
+  updateCartBadge()
+  await loadCategories()
+  await loadProducts()
+}
+
+void init()
