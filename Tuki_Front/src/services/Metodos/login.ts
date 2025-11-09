@@ -35,7 +35,7 @@ export async function iniciarSesion(credenciales: IUsuarioInputDTO, mensajeError
       if (usuario.rol === "ADMINISTRADOR") {
         navigate("/src/pages/admin/home/home.html");
         } else if (usuario.rol === "CLIENTE") {
-        navigate("/src/pages/client/home/home.html");
+        navigate("/src/pages/store/home/home.html");
         }
     }
   }

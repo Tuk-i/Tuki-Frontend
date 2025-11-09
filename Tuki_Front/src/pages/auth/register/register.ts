@@ -8,7 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL_Users_create;
 const iniciarSesionBoton = document.getElementById("iniciarSesion") as HTMLButtonElement;
 
 iniciarSesionBoton.addEventListener("click", () => {
-  window.location.href = "src/pages/auth/login/login.html";
+  window.location.href = "/src/pages/auth/login/login.html";
 });
 
 
