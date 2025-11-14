@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de productos</title>
+    <link rel="stylesheet" href="../home/style.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="admin-layout">
+      <aside class="admin-sidebar" aria-label="Navegación administrativa">
+        <div class="admin-sidebar__brand">
+          <span class="admin-sidebar__logo" aria-hidden="true">T</span>
+          <div class="admin-sidebar__title">
+            <p class="admin-sidebar__title-label">Tuki Store</p>
+            <p class="admin-sidebar__title-section">Administración</p>
+          </div>
+        </div>
+        <nav class="admin-sidebar__nav">
+          <a class="admin-sidebar__link" href="/src/pages/admin/home/home.html">
+            <span>Dashboard</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/categories/categories.html">
+            <span>Categorías</span>
+          </a>
+          <a class="admin-sidebar__link admin-sidebar__link--active" aria-current="page" href="./products.html">
+            <span>Productos</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/orders/orders.html">
+            <span>Pedidos</span>
+          </a>
+        </nav>
+        <div class="admin-sidebar__footer">
+          <button id="logout-button" class="admin-sidebar__logout" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main class="admin-content">
+        <header class="admin-content__header">
+          <div>
+            <p class="admin-content__eyebrow">Catálogo</p>
+            <h1 class="admin-content__title">Gestión de productos</h1>
+            <p class="admin-content__subtitle">
+              Crea, actualiza y controla el inventario de productos disponibles en la tienda.
+            </p>
+          </div>
+        </header>
+
+        <section class="admin-section" aria-labelledby="products-heading">
+          <div class="products-toolbar">
+            <div class="products-toolbar__title">
+              <h2 id="products-heading">Productos</h2>
+              <p>Administra el catálogo y mantén los datos sincronizados.</p>
+            </div>
+            <button id="new-product-button" class="button" type="button">
+              Nuevo producto
+            </button>
+          </div>
+
+          <div id="notification" class="notification" role="status" aria-live="polite"></div>
+
+          <div class="products-table-wrapper" role="region" aria-live="polite" aria-labelledby="products-heading">
+            <table class="products-table">
+              <caption class="visually-hidden">Listado de productos disponibles</caption>
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Imagen</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col">Precio</th>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Stock</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body">
+                <tr>
+                  <td class="products-empty" colspan="9">Cargando productos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="product-modal" class="modal" aria-modal="true" aria-labelledby="product-modal-title">
+      <form id="product-form" class="modal__form" novalidate>
+        <div class="modal__header">
+          <div>
+            <h2 id="product-modal-title" class="modal__title">Nuevo producto</h2>
+            <p class="modal__description" id="product-modal-description">
+              Completa los datos para registrar un nuevo producto en el catálogo.
+            </p>
+          </div>
+          <button type="button" class="modal__close" id="product-modal-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal__body">
+          <div class="modal__field">
+            <label class="modal__label" for="product-name">Nombre</label>
+            <input
+              id="product-name"
+              name="nombre"
+              class="modal__input"
+              type="text"
+              placeholder="Ingresa el nombre del producto"
+              maxlength="120"
+              required
+            />
+          </div>
+          <div class="modal__field">
+            <label class="modal__label" for="product-description">Descripción</label>
+            <textarea
+              id="product-description"
+              name="descripcion"
+              class="modal__textarea"
+              placeholder="Describe brevemente el producto"
+              maxlength="500"
+              required
+            ></textarea>
+          </div>
+          <div class="modal__field modal__field--inline">
+            <div class="modal__field">
+              <label class="modal__label" for="product-price">Precio</label>
+              <input
+                id="product-price"
+                name="precio"
+                class="modal__input"
+                type="number"
+                inputmode="decimal"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                required
+              />
+            </div>
+            <div class="modal__field">
+              <label class="modal__label" for="product-stock">Stock</label>
+              <input
+                id="product-stock"
+                name="stock"
+                class="modal__input"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                step="1"
+                placeholder="0"
+                required
+              />
+            </div>
+          </div>
+          <div class="modal__field">
+            <label class="modal__label" for="product-category">Categoría</label>
+            <select id="product-category" name="categoriaId" class="modal__select" required>
+              <option value="" disabled selected>Selecciona una categoría</option>
+            </select>
+          </div>
+          <div class="modal__field">
+            <label class="modal__label" for="product-image">URL de imagen</label>
+            <input
+              id="product-image"
+              name="urlImagen"
+              class="modal__input"
+              type="url"
+              inputmode="url"
+              placeholder="https://ejemplo.com/imagen.jpg"
+              required
+            />
+          </div>
+          <div class="modal__field modal__field--switch">
+            <label class="modal__switch">
+              <input id="product-available" name="disponible" type="checkbox" checked />
+              <span>Producto disponible</span>
+            </label>
+          </div>
+
+          <div id="product-form-error" class="modal__error" role="alert"></div>
+
+          <div class="modal__actions">
+            <button type="button" class="button button--ghost" id="product-cancel-button">Cancelar</button>
+            <button type="submit" class="button" id="product-submit-button">Crear producto</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="loading-state" class="feedback feedback--loading" role="status" aria-live="polite" hidden>
+      <div class="feedback__spinner" aria-hidden="true"></div>
+      <p>Cargando productos...</p>
+    </div>
+
+    <div id="error-state" class="feedback feedback--error" role="alert" hidden>
+      <p id="error-message">No se pudieron cargar los productos.</p>
+      <button id="retry-button" type="button">Reintentar</button>
+    </div>
+
+    <script type="module" src="products.ts"></script>
+  </body>
+</html>
