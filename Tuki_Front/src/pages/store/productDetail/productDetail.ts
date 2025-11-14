@@ -1,4 +1,8 @@
 import { Get } from "../../../services/api.ts"
+import { readEnvOr } from "@utils/env"
+import { requireElementById } from "@utils/dom"
+import { formatCurrency } from "@utils/format"
+import { normalizeBoolean, normalizeNumber, normalizeString, unwrapCollection } from "@utils/normalize"
 
 interface ProductDetail {
   id: string
@@ -20,101 +24,35 @@ type FeedbackState = "success" | "error" | "info" | "warning"
 
 type StatusState = "available" | "unavailable" | "warning" | "info"
 
-const PRODUCTS_API_URL = import.meta.env.VITE_API_URL_PRODUCTS as string | undefined
+const PRODUCTS_API_URL = readEnvOr("VITE_API_URL_PRODUCTS", "")
 const cartStorageKey = "storeCartItems"
 
 const fallbackImage = new URL("../home/assets/pngwing.png", import.meta.url).href
 
-const requireElement = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id)
-  if (!element) {
-    throw new Error(`No se encontró el elemento con id "${id}" en el DOM`)
-  }
-  return element as T
-}
+const productContainer = requireElementById<HTMLDivElement>("product-container")
+const loadingState = requireElementById<HTMLElement>("loading-state")
+const errorState = requireElementById<HTMLElement>("error-state")
+const errorMessage = requireElementById<HTMLParagraphElement>("error-message")
+const retryButton = requireElementById<HTMLButtonElement>("retry-button")
+const backButton = requireElementById<HTMLButtonElement>("back-button")
 
-const productContainer = requireElement<HTMLDivElement>("product-container")
-const loadingState = requireElement<HTMLElement>("loading-state")
-const errorState = requireElement<HTMLElement>("error-state")
-const errorMessage = requireElement<HTMLParagraphElement>("error-message")
-const retryButton = requireElement<HTMLButtonElement>("retry-button")
-const backButton = requireElement<HTMLButtonElement>("back-button")
+const productImage = requireElementById<HTMLImageElement>("product-image")
+const productName = requireElementById<HTMLHeadingElement>("product-name")
+const productDescription = requireElementById<HTMLParagraphElement>("product-description")
+const productPrice = requireElementById<HTMLParagraphElement>("product-price")
+const productStock = requireElementById<HTMLSpanElement>("product-stock")
+const productCategory = requireElementById<HTMLSpanElement>("product-category")
+const productStatus = requireElementById<HTMLSpanElement>("product-status")
 
-const productImage = requireElement<HTMLImageElement>("product-image")
-const productName = requireElement<HTMLHeadingElement>("product-name")
-const productDescription = requireElement<HTMLParagraphElement>("product-description")
-const productPrice = requireElement<HTMLParagraphElement>("product-price")
-const productStock = requireElement<HTMLSpanElement>("product-stock")
-const productCategory = requireElement<HTMLSpanElement>("product-category")
-const productStatus = requireElement<HTMLSpanElement>("product-status")
-
-const quantityInput = requireElement<HTMLInputElement>("quantity-input")
-const decreaseButton = requireElement<HTMLButtonElement>("quantity-decrease")
-const increaseButton = requireElement<HTMLButtonElement>("quantity-increase")
-const addToCartButton = requireElement<HTMLButtonElement>("add-to-cart")
-const feedbackMessage = requireElement<HTMLParagraphElement>("feedback-message")
+const quantityInput = requireElementById<HTMLInputElement>("quantity-input")
+const decreaseButton = requireElementById<HTMLButtonElement>("quantity-decrease")
+const increaseButton = requireElementById<HTMLButtonElement>("quantity-increase")
+const addToCartButton = requireElementById<HTMLButtonElement>("add-to-cart")
+const feedbackMessage = requireElementById<HTMLParagraphElement>("feedback-message")
 
 let currentProduct: ProductDetail | null = null
 let currentProductId: string | null = null
 let feedbackTimeout: number | undefined
-
-const readString = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed.length ? trimmed : undefined
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value)
-  }
-  return undefined
-}
-
-const readNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
-}
-
-const readBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") {
-    return value
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase()
-    if (normalized === "true") return true
-    if (normalized === "false") return false
-  }
-  if (typeof value === "number") {
-    if (value === 1) return true
-    if (value === 0) return false
-  }
-  return undefined
-}
-
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    const candidates = ["data", "items", "results", "content", "productos", "producto", "product", "result"]
-    for (const key of candidates) {
-      const candidate = record[key]
-      if (Array.isArray(candidate)) {
-        return candidate
-      }
-      if (candidate && typeof candidate === "object") {
-        return [candidate]
-      }
-    }
-  }
-  return []
-}
 
 const adaptProduct = (value: unknown): ProductDetail | null => {
   if (!value || typeof value !== "object") {
@@ -123,25 +61,25 @@ const adaptProduct = (value: unknown): ProductDetail | null => {
 
   const record = value as Record<string, unknown>
 
-  const id = readString(record.id ?? record.productId ?? record.codigo ?? record.uuid)
+  const id = normalizeString(record.id ?? record.productId ?? record.codigo ?? record.uuid)
   if (!id) {
     return null
   }
 
-  const name = readString(record.name ?? record.nombre ?? record.titulo) ?? "Producto sin nombre"
+  const name = normalizeString(record.name ?? record.nombre ?? record.titulo) ?? "Producto sin nombre"
   const description =
-    readString(record.description ?? record.descripcion ?? record.detalle ?? record.resumen) ??
+    normalizeString(record.description ?? record.descripcion ?? record.detalle ?? record.resumen) ??
     "Sin descripción disponible."
-  const price = readNumber(record.price ?? record.precio ?? record.valor ?? record.costo) ?? 0
-  const stock = Math.max(0, Math.trunc(readNumber(record.stock ?? record.existencias ?? record.cantidad) ?? 0))
+  const price = normalizeNumber(record.price ?? record.precio ?? record.valor ?? record.costo) ?? 0
+  const stock = Math.max(0, Math.trunc(normalizeNumber(record.stock ?? record.existencias ?? record.cantidad) ?? 0))
   const image =
-    readString(
+    normalizeString(
       record.image ?? record.imagen ?? record.urlImagen ?? record.imageUrl ?? record.url ?? record.foto ?? record.imagenUrl
     ) ?? fallbackImage
-  const category = readString(record.category ?? record.categoria ?? record.tipo ?? record.rubro) ?? "Sin categoría"
+  const category = normalizeString(record.category ?? record.categoria ?? record.tipo ?? record.rubro) ?? "Sin categoría"
 
-  const availableFlag = readBoolean(record.available ?? record.activo ?? record.habilitado ?? record.enabled)
-  const eliminated = readBoolean(record.eliminado ?? record.inactivo ?? record.deleted ?? record.isDeleted)
+  const availableFlag = normalizeBoolean(record.available ?? record.activo ?? record.habilitado ?? record.enabled)
+  const eliminated = normalizeBoolean(record.eliminado ?? record.inactivo ?? record.deleted ?? record.isDeleted)
   const available = availableFlag ?? (eliminated === undefined ? true : !eliminated)
 
   return { id, name, description, price, stock, image, category, available }
@@ -156,7 +94,7 @@ const adaptProductResponse = (value: unknown, expectedId: string): ProductDetail
     return direct
   }
 
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   if (collection.length) {
     for (const item of collection) {
       const adapted = adaptProduct(item)
@@ -168,15 +106,6 @@ const adaptProductResponse = (value: unknown, expectedId: string): ProductDetail
   }
 
   return null
-}
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)
 }
 
 const parseCart = (): CartItem[] => {

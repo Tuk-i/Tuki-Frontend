@@ -1,5 +1,9 @@
 import { Get } from "../../../services/api.ts"
 import { checkAuthUsers } from "@utils/auth"
+import { readEnvOr } from "@utils/env"
+import { requireElementById } from "@utils/dom"
+import { formatNumber } from "@utils/format"
+import { normalizeBoolean, normalizeNumber, normalizeString, unwrapCollection } from "@utils/normalize"
 import { logoutUser } from "@utils/localStorage"
 
 type StatusState = "success" | "warning" | "danger" | "info"
@@ -33,32 +37,25 @@ interface DashboardMetrics {
   ordersByStatus: Map<string, number>
 }
 
-const envRecord = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env) ?? {}
+const CATEGORIES_API_URL = readEnvOr("VITE_API_URL_CATEGORIES", "")
+const PRODUCTS_API_URL = readEnvOr("VITE_API_URL_PRODUCTS", "")
+const ORDERS_API_URL = readEnvOr(
+  "VITE_API_URL_ADMIN_ORDERS",
+  readEnvOr("VITE_API_URL_CLIENT_ORDERS", ""),
+)
 
-const CATEGORIES_API_URL = envRecord.VITE_API_URL_CATEGORIES
-const PRODUCTS_API_URL = envRecord.VITE_API_URL_PRODUCTS
-const ORDERS_API_URL = envRecord.VITE_API_URL_ADMIN_ORDERS ?? envRecord.VITE_API_URL_CLIENT_ORDERS
+const totalCategoriesEl = requireElementById<HTMLParagraphElement>("total-categories")
+const totalProductsEl = requireElementById<HTMLParagraphElement>("total-products")
+const totalOrdersEl = requireElementById<HTMLParagraphElement>("total-orders")
+const availableProductsEl = requireElementById<HTMLParagraphElement>("available-products")
 
-const requireElement = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id)
-  if (!element) {
-    throw new Error(`No se encontró el elemento con id "${id}" en el DOM`)
-  }
-  return element as T
-}
-
-const totalCategoriesEl = requireElement<HTMLParagraphElement>("total-categories")
-const totalProductsEl = requireElement<HTMLParagraphElement>("total-products")
-const totalOrdersEl = requireElement<HTMLParagraphElement>("total-orders")
-const availableProductsEl = requireElement<HTMLParagraphElement>("available-products")
-
-const activeCategoriesCountEl = requireElement<HTMLSpanElement>("active-categories-count")
-const activeCategoriesListEl = requireElement<HTMLUListElement>("active-categories-list")
-const productsAvailabilityEl = requireElement<HTMLSpanElement>("products-availability")
-const activeProductsCountEl = requireElement<HTMLParagraphElement>("active-products-count")
-const inactiveProductsCountEl = requireElement<HTMLParagraphElement>("inactive-products-count")
-const ordersStatusListEl = requireElement<HTMLUListElement>("orders-status-list")
-const lastUpdatedEl = requireElement<HTMLTimeElement>("last-updated")
+const activeCategoriesCountEl = requireElementById<HTMLSpanElement>("active-categories-count")
+const activeCategoriesListEl = requireElementById<HTMLUListElement>("active-categories-list")
+const productsAvailabilityEl = requireElementById<HTMLSpanElement>("products-availability")
+const activeProductsCountEl = requireElementById<HTMLParagraphElement>("active-products-count")
+const inactiveProductsCountEl = requireElementById<HTMLParagraphElement>("inactive-products-count")
+const ordersStatusListEl = requireElementById<HTMLUListElement>("orders-status-list")
+const lastUpdatedEl = requireElementById<HTMLTimeElement>("last-updated")
 
 const requireSummaryCard = (selector: string, name: string): HTMLDivElement => {
   const element = document.querySelector<HTMLDivElement>(selector)
@@ -72,86 +69,12 @@ const categoriesSummaryCard = requireSummaryCard('[data-summary="categories"]', 
 const productsSummaryCard = requireSummaryCard('[data-summary="products"]', "productos")
 const ordersSummaryCard = requireSummaryCard('[data-summary="orders"]', "pedidos")
 
-const loadingStateEl = requireElement<HTMLDivElement>("loading-state")
-const errorStateEl = requireElement<HTMLDivElement>("error-state")
-const errorMessageEl = requireElement<HTMLParagraphElement>("error-message")
-const retryButton = requireElement<HTMLButtonElement>("retry-button")
+const loadingStateEl = requireElementById<HTMLDivElement>("loading-state")
+const errorStateEl = requireElementById<HTMLDivElement>("error-state")
+const errorMessageEl = requireElementById<HTMLParagraphElement>("error-message")
+const retryButton = requireElementById<HTMLButtonElement>("retry-button")
 
 const logoutButton = document.getElementById("logout-button") as HTMLButtonElement | null
-
-const readString = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed.length ? trimmed : undefined
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value)
-  }
-  return undefined
-}
-
-const readNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
-}
-
-const readBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") {
-    return value
-  }
-  if (typeof value === "number") {
-    if (value === 1) return true
-    if (value === 0) return false
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase()
-    if (["true", "activo", "activa", "disponible", "habilitado", "habilitada", "si", "sí"].includes(normalized)) {
-      return true
-    }
-    if (["false", "inactivo", "inactiva", "no disponible", "deshabilitado", "deshabilitada", "no"].includes(normalized)) {
-      return false
-    }
-  }
-  return undefined
-}
-
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    const candidates = [
-      "data",
-      "items",
-      "results",
-      "content",
-      "categorias",
-      "categoria",
-      "productos",
-      "producto",
-      "orders",
-      "pedidos",
-      "pedido",
-    ]
-    for (const key of candidates) {
-      const candidate = record[key]
-      if (Array.isArray(candidate)) {
-        return candidate
-      }
-      if (candidate && typeof candidate === "object") {
-        return [candidate]
-      }
-    }
-  }
-  return []
-}
 
 const normalizeStatus = (value: string): string => {
   const trimmed = value.trim()
@@ -167,9 +90,9 @@ const adaptCategory = (value: unknown): CategorySummary | null => {
   }
 
   const record = value as Record<string, unknown>
-  const id = readString(record.id ?? record.categoryId ?? record.uuid ?? record.codigo)
+  const id = normalizeString(record.id ?? record.categoryId ?? record.uuid ?? record.codigo)
   const name =
-    readString(
+    normalizeString(
       record.name ??
         record.nombre ??
         record.titulo ??
@@ -179,8 +102,8 @@ const adaptCategory = (value: unknown): CategorySummary | null => {
         record.detalle
     ) ?? "Categoría sin nombre"
 
-  const statusText = readString(record.status ?? record.estado ?? record.state ?? record.situacion)
-  const activeFlag = readBoolean(record.active ?? record.activo ?? record.habilitado ?? record.enabled ?? statusText)
+  const statusText = normalizeString(record.status ?? record.estado ?? record.state ?? record.situacion)
+  const activeFlag = normalizeBoolean(record.active ?? record.activo ?? record.habilitado ?? record.enabled ?? statusText)
   const active = activeFlag ?? (statusText ? !/inactivo|deshabilitado|baja/i.test(statusText) : true)
   const identifier = id ?? name
 
@@ -196,7 +119,7 @@ const adaptCategory = (value: unknown): CategorySummary | null => {
 }
 
 const adaptCategoriesResponse = (value: unknown): CategorySummary[] => {
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   return collection
     .map((item) => adaptCategory(item))
     .filter((item): item is CategorySummary => Boolean(item))
@@ -208,13 +131,16 @@ const adaptProduct = (value: unknown): ProductSummary | null => {
   }
 
   const record = value as Record<string, unknown>
-  const id = readString(record.id ?? record.productId ?? record.uuid ?? record.codigo)
+  const id = normalizeString(record.id ?? record.productId ?? record.uuid ?? record.codigo)
   const name =
-    readString(record.name ?? record.nombre ?? record.titulo ?? record.descripcion ?? record.descripcionProducto) ??
+    normalizeString(record.name ?? record.nombre ?? record.titulo ?? record.descripcion ?? record.descripcionProducto) ??
     "Producto sin nombre"
-  const stock = Math.max(0, Math.trunc(readNumber(record.stock ?? record.existencias ?? record.cantidad ?? record.inventory) ?? 0))
-  const statusText = readString(record.status ?? record.estado ?? record.state)
-  const availabilityFlag = readBoolean(record.available ?? record.activo ?? record.habilitado ?? record.disponible ?? statusText)
+  const stock = Math.max(
+    0,
+    Math.trunc(normalizeNumber(record.stock ?? record.existencias ?? record.cantidad ?? record.inventory) ?? 0),
+  )
+  const statusText = normalizeString(record.status ?? record.estado ?? record.state)
+  const availabilityFlag = normalizeBoolean(record.available ?? record.activo ?? record.habilitado ?? record.disponible ?? statusText)
   const available = availabilityFlag ?? (statusText ? !/inactivo|agotado|deshabilitado/i.test(statusText) : stock > 0)
 
   if (!id) {
@@ -230,7 +156,7 @@ const adaptProduct = (value: unknown): ProductSummary | null => {
 }
 
 const adaptProductsResponse = (value: unknown): ProductSummary[] => {
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   return collection
     .map((item) => adaptProduct(item))
     .filter((item): item is ProductSummary => Boolean(item))
@@ -242,9 +168,9 @@ const adaptOrder = (value: unknown): OrderSummary | null => {
   }
 
   const record = value as Record<string, unknown>
-  const id = readString(record.id ?? record.pedidoId ?? record.orderId ?? record.uuid ?? record.codigo)
+  const id = normalizeString(record.id ?? record.pedidoId ?? record.orderId ?? record.uuid ?? record.codigo)
   const status =
-    readString(
+    normalizeString(
       record.status ??
         record.estado ??
         record.state ??
@@ -261,13 +187,11 @@ const adaptOrder = (value: unknown): OrderSummary | null => {
 }
 
 const adaptOrdersResponse = (value: unknown): OrderSummary[] => {
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   return collection
     .map((item) => adaptOrder(item))
     .filter((item): item is OrderSummary => Boolean(item))
 }
-
-const formatNumber = (value: number): string => value.toLocaleString("es-AR")
 
 const toErrorMessage = (reason: unknown, fallback: string): string => {
   if (reason instanceof Error && reason.message.trim()) {

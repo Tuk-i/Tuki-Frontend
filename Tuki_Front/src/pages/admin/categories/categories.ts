@@ -1,41 +1,33 @@
 import { Get, Post } from "../../../services/api.ts"
 import { updateById } from "../../../services/Metodos/UpdateById"
 import { checkAuthUsers } from "@utils/auth"
+import { readEnvOr } from "@utils/env"
+import { queryRequiredElement } from "@utils/dom"
+import { createNotificationController } from "@utils/notification"
+import { normalizeNumber, normalizeString, unwrapCollection } from "@utils/normalize"
 import { logoutUser } from "@utils/localStorage"
 import type { ICategoryDTO, ICategoryInputDTO } from "@models/Icategoria"
 
 type ModalMode = "create" | "edit"
-type NotificationVariant = "success" | "error" | "info"
 
-type EnvRecord = { [key: string]: string | undefined }
-
-const envRecord = ((import.meta as unknown as { env?: EnvRecord }).env) ?? {}
-const CATEGORIES_API_URL = envRecord.VITE_API_URL_CATEGORIES ?? ""
+const CATEGORIES_API_URL = readEnvOr("VITE_API_URL_CATEGORIES", "")
 
 const DEFAULT_CATEGORY_IMAGE = "/src/public/images/dragoncito.png"
 
-const getElement = <T extends Element>(selector: string): T => {
-  const element = document.querySelector<T>(selector)
-  if (!element) {
-    throw new Error(`No se encontró el elemento requerido: ${selector}`)
-  }
-  return element
-}
-
-const categoriesTableBody = getElement<HTMLTableSectionElement>("#categories-table-body")
-const notification = getElement<HTMLDivElement>("#notification")
-const categoryModal = getElement<HTMLDialogElement>("#category-modal")
-const categoryForm = getElement<HTMLFormElement>("#category-form")
-const categoryModalTitle = getElement<HTMLHeadingElement>("#category-modal-title")
-const categoryModalDescription = getElement<HTMLParagraphElement>("#category-modal-description")
-const categoryNameInput = getElement<HTMLInputElement>("#category-name")
-const categoryDescriptionInput = getElement<HTMLTextAreaElement>("#category-description")
-const categoryImageInput = getElement<HTMLInputElement>("#category-image")
-const categoryFormError = getElement<HTMLDivElement>("#category-form-error")
-const categorySubmitButton = getElement<HTMLButtonElement>("#category-submit-button")
-const categoryCancelButton = getElement<HTMLButtonElement>("#category-cancel-button")
-const categoryModalClose = getElement<HTMLButtonElement>("#category-modal-close")
-const newCategoryButton = getElement<HTMLButtonElement>("#new-category-button")
+const categoriesTableBody = queryRequiredElement<HTMLTableSectionElement>("#categories-table-body")
+const notification = queryRequiredElement<HTMLDivElement>("#notification")
+const categoryModal = queryRequiredElement<HTMLDialogElement>("#category-modal")
+const categoryForm = queryRequiredElement<HTMLFormElement>("#category-form")
+const categoryModalTitle = queryRequiredElement<HTMLHeadingElement>("#category-modal-title")
+const categoryModalDescription = queryRequiredElement<HTMLParagraphElement>("#category-modal-description")
+const categoryNameInput = queryRequiredElement<HTMLInputElement>("#category-name")
+const categoryDescriptionInput = queryRequiredElement<HTMLTextAreaElement>("#category-description")
+const categoryImageInput = queryRequiredElement<HTMLInputElement>("#category-image")
+const categoryFormError = queryRequiredElement<HTMLDivElement>("#category-form-error")
+const categorySubmitButton = queryRequiredElement<HTMLButtonElement>("#category-submit-button")
+const categoryCancelButton = queryRequiredElement<HTMLButtonElement>("#category-cancel-button")
+const categoryModalClose = queryRequiredElement<HTMLButtonElement>("#category-modal-close")
+const newCategoryButton = queryRequiredElement<HTMLButtonElement>("#new-category-button")
 
 const loadingState = document.getElementById("loading-state") as HTMLDivElement | null
 const errorState = document.getElementById("error-state") as HTMLDivElement | null
@@ -43,25 +35,11 @@ const errorMessage = document.getElementById("error-message") as HTMLParagraphEl
 const retryButton = document.getElementById("retry-button") as HTMLButtonElement | null
 const logoutButton = document.getElementById("logout-button") as HTMLButtonElement | null
 
+const { reset: resetNotification, show: showNotification } = createNotificationController(notification)
+
 let categories: ICategoryDTO[] = []
 let modalMode: ModalMode = "create"
 let editingCategoryId: number | null = null
-
-const resetNotification = () => {
-  notification.textContent = ""
-  notification.classList.remove(
-    "notification--visible",
-    "notification--success",
-    "notification--error",
-    "notification--info",
-  )
-}
-
-const showNotification = (message: string, variant: NotificationVariant) => {
-  notification.textContent = message
-  notification.classList.remove("notification--success", "notification--error", "notification--info")
-  notification.classList.add("notification--visible", `notification--${variant}`)
-}
 
 const showLoading = () => {
   if (loadingState) {
@@ -159,16 +137,11 @@ const openModal = (mode: ModalMode, category?: ICategoryDTO) => {
 }
 
 const parseCategoryId = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
+  const normalized = normalizeNumber(value)
+  if (normalized === undefined || !Number.isInteger(normalized) || normalized < 0) {
+    return null
   }
-
-  if (typeof value === "string") {
-    const parsed = Number.parseInt(value, 10)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  return null
+  return normalized
 }
 
 const adaptCategory = (value: unknown): ICategoryDTO | null => {
@@ -178,21 +151,11 @@ const adaptCategory = (value: unknown): ICategoryDTO | null => {
 
   const record = value as Record<string, unknown>
   const id = parseCategoryId(record.id ?? record.ID ?? record.identifier)
-  const nombre = typeof record.nombre === "string" ? record.nombre : typeof record.name === "string" ? record.name : null
-  const descripcion =
-    typeof record.descripcion === "string"
-      ? record.descripcion
-      : typeof record.description === "string"
-        ? record.description
-        : null
-  const urlImagen =
-    typeof record.urlImagen === "string"
-      ? record.urlImagen
-      : typeof record.imagen === "string"
-        ? record.imagen
-        : typeof record.image === "string"
-          ? record.image
-          : null
+  const nombre = normalizeString(record.nombre ?? record.name)
+  const descripcion = normalizeString(record.descripcion ?? record.description)
+  const urlImagen = normalizeString(
+    record.urlImagen ?? record.imagen ?? record.image ?? record.imageUrl ?? record.imagenUrl ?? record.foto,
+  )
 
   if (id === null || !nombre || !descripcion) {
     return null
@@ -202,15 +165,13 @@ const adaptCategory = (value: unknown): ICategoryDTO | null => {
     id,
     nombre,
     descripcion,
-    urlImagen,
+    urlImagen: urlImagen ?? null,
   }
 }
 
 const adaptCategories = (payload: unknown): ICategoryDTO[] => {
-  if (!Array.isArray(payload)) {
-    return []
-  }
-  return payload.map((item) => adaptCategory(item)).filter((item): item is ICategoryDTO => Boolean(item))
+  const collection = unwrapCollection(payload, { unwrapNestedObject: true })
+  return collection.map((item) => adaptCategory(item)).filter((item): item is ICategoryDTO => Boolean(item))
 }
 
 const createCategoryRow = (category: ICategoryDTO): HTMLTableRowElement => {

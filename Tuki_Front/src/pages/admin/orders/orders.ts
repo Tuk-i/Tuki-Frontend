@@ -1,11 +1,12 @@
 import { Get } from "../../../services/api.ts"
 import { checkAuthUsers } from "@utils/auth"
+import { readEnv, readEnvOr } from "@utils/env"
+import { requireElementById } from "@utils/dom"
+import { createNotificationController } from "@utils/notification"
+import { formatCurrency, formatDate, formatDateLong } from "@utils/format"
+import { normalizeNumber, normalizeStatusText, normalizeString, unwrapCollection } from "@utils/normalize"
 import { logoutUser } from "@utils/localStorage"
 import type { ClientOrder, OrderDeliveryInfo, OrderProduct, OrderStatus } from "@models/IOrders"
-
-interface EnvRecord {
-  [key: string]: string | undefined
-}
 
 interface OrdersState {
   orders: AdminOrder[]
@@ -42,13 +43,12 @@ interface AdminOrder extends ClientOrder {
   notes?: string
 }
 
-type NotificationVariant = "success" | "error" | "info"
+const adminOrdersUrl = readEnv("VITE_API_URL_ADMIN_ORDERS")
+const clientOrdersUrl = readEnv("VITE_API_URL_CLIENT_ORDERS")
 
-const envRecord = ((import.meta as unknown as { env?: EnvRecord }).env) ?? {}
-
-const ORDERS_API_URL = envRecord.VITE_API_URL_ADMIN_ORDERS ?? envRecord.VITE_API_URL_CLIENT_ORDERS ?? ""
-const ORDER_STATUS_API_URL = envRecord.VITE_API_URL_ADMIN_ORDER_STATUS ?? ORDERS_API_URL
-const ORDER_STATUS_METHOD = (envRecord.VITE_API_ADMIN_ORDER_STATUS_METHOD ?? "PATCH").toUpperCase()
+const ORDERS_API_URL = adminOrdersUrl ?? clientOrdersUrl ?? ""
+const ORDER_STATUS_API_URL = readEnvOr("VITE_API_URL_ADMIN_ORDER_STATUS", ORDERS_API_URL)
+const ORDER_STATUS_METHOD = readEnvOr("VITE_API_ADMIN_ORDER_STATUS_METHOD", "PATCH").toUpperCase()
 
 const STATUS_CONFIG: Record<OrderStatus, StatusVisualConfig> = {
   pending: {
@@ -73,22 +73,6 @@ const STATUS_CONFIG: Record<OrderStatus, StatusVisualConfig> = {
   },
 }
 
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-})
-
-const dateTimeFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-})
-
-const dateTimeLongFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "long",
-  timeStyle: "short",
-})
-
 const state: OrdersState = {
   orders: [],
   filter: "all",
@@ -96,14 +80,6 @@ const state: OrdersState = {
   error: null,
   selectedOrder: null,
   isUpdating: false,
-}
-
-const requireElementById = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id)
-  if (!(element instanceof HTMLElement)) {
-    throw new Error(`No se encontró el elemento requerido: #${id}`)
-  }
-  return element as T
 }
 
 const elements = {
@@ -123,55 +99,7 @@ const elements = {
   orderStatusSelect: requireElementById<HTMLSelectElement>("order-status-select"),
 } as const
 
-const resetNotification = () => {
-  elements.notification.textContent = ""
-  elements.notification.classList.remove(
-    "notification--visible",
-    "notification--success",
-    "notification--error",
-    "notification--info",
-  )
-}
-
-const showNotification = (message: string, variant: NotificationVariant) => {
-  elements.notification.textContent = message
-  elements.notification.classList.remove("notification--success", "notification--error", "notification--info")
-  elements.notification.classList.add("notification--visible", `notification--${variant}`)
-}
-
-const normalizeString = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed.length ? trimmed : undefined
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value)
-  }
-
-  return undefined
-}
-
-const normalizeNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-
-  if (typeof value === "string" && value.trim()) {
-    const normalized = value.replace(/,/g, ".")
-    const parsed = Number(normalized)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-
-  return undefined
-}
-
-const normalizeStatusText = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
+const { reset: resetNotification, show: showNotification } = createNotificationController(elements.notification)
 
 const adaptStatus = (value: unknown): OrderStatus => {
   const normalizedValue = normalizeString(value)
@@ -224,38 +152,6 @@ const adaptStatus = (value: unknown): OrderStatus => {
   }
 
   return "pending"
-}
-
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value
-  }
-
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    const candidates = [
-      "orders",
-      "pedidos",
-      "data",
-      "items",
-      "results",
-      "content",
-      "lista",
-      "list",
-      "values",
-      "rows",
-      "orderList",
-      "pedidoList",
-    ]
-
-    for (const key of candidates) {
-      if (Array.isArray(record[key])) {
-        return record[key] as unknown[]
-      }
-    }
-  }
-
-  return []
 }
 
 const computeProductsSubtotal = (products: OrderProduct[]): number =>
@@ -544,28 +440,16 @@ const adaptOrders = (value: unknown): AdminOrder[] => {
   })
 }
 
-const formatCurrency = (value: number): string => {
-  const rounded = Math.round((Number.isFinite(value) ? value : 0) * 100) / 100
-  return currencyFormatter.format(rounded)
+const formatOrderDate = (value: string): string => {
+  const formatted = formatDate(value, { dateStyle: "medium", timeStyle: "short" })
+  return formatted || value
 }
 
-const formatDate = (value: string): string => {
-  const timestamp = Date.parse(value)
-  if (!Number.isNaN(timestamp)) {
-    return dateTimeFormatter.format(new Date(timestamp))
-  }
-  return value
-}
-
-const formatDateLong = (value: string | undefined): string | undefined => {
+const formatOrderDateLong = (value: string | undefined): string | undefined => {
   if (!value) {
     return undefined
   }
-  const timestamp = Date.parse(value)
-  if (!Number.isNaN(timestamp)) {
-    return dateTimeLongFormatter.format(new Date(timestamp))
-  }
-  return value
+  return formatDateLong(value, { dateStyle: "long", timeStyle: "short" }) ?? value
 }
 
 const getProductsCount = (order: ClientOrder): number =>
@@ -680,7 +564,7 @@ const createOrderCard = (order: AdminOrder): HTMLElement => {
   metaList.className = "order-card__meta"
 
   const metaItems: Array<{ label: string; value: string }> = [
-    { label: "Fecha", value: formatDate(order.createdAt) },
+    { label: "Fecha", value: formatOrderDate(order.createdAt) },
     { label: "Productos", value: formatProductsCount(order) },
     { label: "Total", value: formatCurrency(order.total) },
   ]
@@ -938,7 +822,7 @@ const createCostsSection = (order: AdminOrder): HTMLElement => {
 
 const renderModalContent = (order: AdminOrder) => {
   elements.orderModalTitle.textContent = `Pedido #${order.number}`
-  elements.orderModalSubtitle.textContent = `Creado el ${formatDate(order.createdAt)}`
+  elements.orderModalSubtitle.textContent = `Creado el ${formatOrderDate(order.createdAt)}`
 
   elements.orderStatusSelect.value = order.status
   elements.orderModalError.textContent = ""
@@ -961,7 +845,7 @@ const renderModalContent = (order: AdminOrder) => {
     { label: "Referencia", value: delivery.reference },
     { label: "Contacto", value: delivery.contactName },
     { label: "Teléfono", value: delivery.contactPhone },
-    { label: "Programado", value: formatDateLong(delivery.scheduledAt) },
+    { label: "Programado", value: formatOrderDateLong(delivery.scheduledAt) },
     { label: "Método", value: delivery.method },
   ])
   if (deliverySection) {

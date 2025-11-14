@@ -1,4 +1,8 @@
 import { Get } from "../../../services/api.ts"
+import { readEnvOr } from "@utils/env"
+import { requireElementById } from "@utils/dom"
+import { formatCurrency } from "@utils/format"
+import { normalizeBoolean, normalizeNumber, normalizeString, unwrapCollection } from "@utils/normalize"
 import { logoutUser } from "@utils/localStorage"
 
 interface ProductItem {
@@ -18,20 +22,20 @@ interface CartItem {
 
 const fallbackImage = new URL("./assets/pngwing.png", import.meta.url).href
 
-const PRODUCTS_API_URL = import.meta.env.VITE_API_URL_PRODUCTS
-const CATEGORIES_API_URL = import.meta.env.VITE_API_URL_CATEGORIES
+const PRODUCTS_API_URL = readEnvOr("VITE_API_URL_PRODUCTS", "")
+const CATEGORIES_API_URL = readEnvOr("VITE_API_URL_CATEGORIES", "")
 
 const cartStorageKey = "storeCartItems"
 
-const searchInput = document.getElementById("search") as HTMLInputElement
-const productGrid = document.getElementById("product-grid") as HTMLDivElement
-const resultsCount = document.getElementById("results-count") as HTMLParagraphElement
-const sortSelect = document.getElementById("sort") as HTMLSelectElement
-const categoryList = document.getElementById("category-list") as HTMLUListElement
-const sidebar = document.getElementById("sidebar") as HTMLElement
-const sidebarToggle = document.getElementById("sidebar-toggle") as HTMLButtonElement
-const sidebarClose = document.getElementById("sidebar-close") as HTMLButtonElement
-const cartBadge = document.getElementById("cart-badge") as HTMLSpanElement
+const searchInput = requireElementById<HTMLInputElement>("search")
+const productGrid = requireElementById<HTMLDivElement>("product-grid")
+const resultsCount = requireElementById<HTMLParagraphElement>("results-count")
+const sortSelect = requireElementById<HTMLSelectElement>("sort")
+const categoryList = requireElementById<HTMLUListElement>("category-list")
+const sidebar = requireElementById<HTMLElement>("sidebar")
+const sidebarToggle = requireElementById<HTMLButtonElement>("sidebar-toggle")
+const sidebarClose = requireElementById<HTMLButtonElement>("sidebar-close")
+const cartBadge = requireElementById<HTMLSpanElement>("cart-badge")
 const logoutButton = document.getElementById("logout-button") as HTMLAnchorElement | null
 
 const state = {
@@ -44,52 +48,6 @@ let products: ProductItem[] = []
 let remoteCategories: string[] = []
 let isLoadingProducts = true
 let loadErrorMessage: string | null = null
-
-const readString = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed.length ? trimmed : undefined
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value)
-  }
-  return undefined
-}
-
-const readNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
-}
-
-const readBoolean = (value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") {
-    return value
-  }
-  return undefined
-}
-
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    const candidates = ["data", "items", "results", "content", "productos", "categoria", "categorias"]
-    for (const key of candidates) {
-      const candidate = record[key]
-      if (Array.isArray(candidate)) {
-        return candidate
-      }
-    }
-  }
-  return []
-}
 
 const normalizeCategory = (value: string | undefined): string | undefined => {
   if (!value) return undefined
@@ -104,7 +62,7 @@ const adaptCategoryValue = (value: unknown): string | undefined => {
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>
     return normalizeCategory(
-      readString(record.nombre ?? record.name ?? record.titulo ?? record.descripcion ?? record.label)
+      normalizeString(record.nombre ?? record.name ?? record.titulo ?? record.descripcion ?? record.label)
     )
   }
   return undefined
@@ -117,18 +75,18 @@ const adaptProduct = (value: unknown): ProductItem | null => {
 
   const record = value as Record<string, unknown>
 
-  const id = readString(record.id ?? record.productId ?? record.codigo ?? record.uuid)
-  const name = readString(record.name ?? record.nombre ?? record.titulo) ?? "Producto sin nombre"
+  const id = normalizeString(record.id ?? record.productId ?? record.codigo ?? record.uuid)
+  const name = normalizeString(record.name ?? record.nombre ?? record.titulo) ?? "Producto sin nombre"
   const description =
-    readString(record.description ?? record.descripcion ?? record.detalle ?? record.resumen) ?? ""
-  const price = readNumber(record.price ?? record.precio ?? record.costo ?? record.valor) ?? 0
+    normalizeString(record.description ?? record.descripcion ?? record.detalle ?? record.resumen) ?? ""
+  const price = normalizeNumber(record.price ?? record.precio ?? record.costo ?? record.valor) ?? 0
   const category =
     adaptCategoryValue(record.category ?? record.categoria ?? record.tipo ?? record.rubro) ?? "Sin categoría"
   const image =
-    readString(
+    normalizeString(
       record.image ?? record.imagen ?? record.imagenUrl ?? record.imageUrl ?? record.urlImagen ?? record.foto
     ) ?? fallbackImage
-  const available = readBoolean(record.available ?? record.disponible ?? record.activo) ?? true
+  const available = normalizeBoolean(record.available ?? record.disponible ?? record.activo) ?? true
 
   if (!id) {
     return null
@@ -146,14 +104,14 @@ const adaptProduct = (value: unknown): ProductItem | null => {
 }
 
 const adaptProducts = (value: unknown): ProductItem[] => {
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   return collection
     .map((item) => adaptProduct(item))
     .filter((item): item is ProductItem => Boolean(item))
 }
 
 const adaptCategories = (value: unknown): string[] => {
-  const collection = unwrapCollection(value)
+  const collection = unwrapCollection(value, { unwrapNestedObject: true })
   const parsed = collection
     .map((item) => adaptCategoryValue(item))
     .filter((item): item is string => Boolean(item))
@@ -211,6 +169,72 @@ const updateActiveCategory = () => {
     const buttonCategory = button.dataset.category ?? "all"
     button.classList.toggle("is-active", buttonCategory === state.category)
   })
+}
+
+const createProductCard = (product: ProductItem): HTMLElement => {
+  const card = document.createElement("article")
+  card.className = "product-card"
+  card.dataset.productId = product.id
+
+  const imageWrapper = document.createElement("div")
+  imageWrapper.className = "product-card__image"
+
+  const image = document.createElement("img")
+  image.src = product.image || fallbackImage
+  image.alt = product.name
+
+  const availability = document.createElement("span")
+  availability.className = `product-card__availability ${product.available ? "is-available" : "is-unavailable"}`
+  availability.textContent = product.available ? "Disponible" : "Agotado"
+
+  imageWrapper.append(image, availability)
+
+  const body = document.createElement("div")
+  body.className = "product-card__body"
+
+  const title = document.createElement("h3")
+  title.className = "product-card__title"
+  title.textContent = product.name
+
+  const description = document.createElement("p")
+  description.className = "product-card__description"
+  description.textContent = product.description
+
+  const footer = document.createElement("div")
+  footer.className = "product-card__footer"
+
+  const price = document.createElement("span")
+  price.className = "product-card__price"
+  price.textContent = formatCurrency(product.price)
+
+  const button = document.createElement("button")
+  button.className = "product-card__button"
+  button.type = "button"
+  button.textContent = product.available ? "Agregar" : "Agotado"
+  button.disabled = !product.available
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation()
+    if (!product.available) return
+    addToCart(product.id)
+    button.textContent = "Añadido"
+    button.disabled = true
+    setTimeout(() => {
+      button.textContent = "Agregar"
+      button.disabled = false
+    }, 1000)
+  })
+
+  footer.append(price, button)
+  body.append(title, description, footer)
+
+  card.append(imageWrapper, body)
+
+  card.addEventListener("click", () => {
+    window.location.href = `../productDetail/productDetail.html?id=${encodeURIComponent(product.id)}`
+  })
+
+  return card
 }
 
 const renderProducts = () => {
@@ -278,71 +302,11 @@ const renderProducts = () => {
     return
   }
 
-  sorted.forEach((product) => {
-    const card = document.createElement("article")
-    card.className = "product-card"
-    card.dataset.productId = product.id
-
-    const imageWrapper = document.createElement("div")
-    imageWrapper.className = "product-card__image"
-
-    const image = document.createElement("img")
-    image.src = product.image || fallbackImage
-    image.alt = product.name
-
-    const availability = document.createElement("span")
-    availability.className = `product-card__availability ${product.available ? "is-available" : "is-unavailable"}`
-    availability.textContent = product.available ? "Disponible" : "Agotado"
-
-    imageWrapper.append(image, availability)
-
-    const body = document.createElement("div")
-    body.className = "product-card__body"
-
-    const title = document.createElement("h3")
-    title.className = "product-card__title"
-    title.textContent = product.name
-
-    const description = document.createElement("p")
-    description.className = "product-card__description"
-    description.textContent = product.description
-
-    const footer = document.createElement("div")
-    footer.className = "product-card__footer"
-
-    const price = document.createElement("span")
-    price.className = "product-card__price"
-    price.textContent = `$${product.price.toFixed(2)}`
-
-    const button = document.createElement("button")
-    button.className = "product-card__button"
-    button.type = "button"
-    button.textContent = product.available ? "Agregar" : "Agotado"
-    button.disabled = !product.available
-
-    button.addEventListener("click", (event) => {
-      event.stopPropagation()
-      if (!product.available) return
-      addToCart(product.id)
-      button.textContent = "Añadido"
-      button.disabled = true
-      setTimeout(() => {
-        button.textContent = "Agregar"
-        button.disabled = false
-      }, 1000)
+  sorted
+    .map((product) => createProductCard(product))
+    .forEach((card) => {
+      productGrid.appendChild(card)
     })
-
-    footer.append(price, button)
-    body.append(title, description, footer)
-
-    card.append(imageWrapper, body)
-
-    card.addEventListener("click", () => {
-      window.location.href = `../productDetail/productDetail.html?id=${encodeURIComponent(product.id)}`
-    })
-
-    productGrid.appendChild(card)
-  })
 }
 
 const parseCart = (): CartItem[] => {

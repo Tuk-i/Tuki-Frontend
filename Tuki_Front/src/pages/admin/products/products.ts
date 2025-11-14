@@ -1,14 +1,16 @@
 import { Get, Post } from "../../../services/api.ts"
 import { updateById } from "../../../services/Metodos/UpdateById"
 import { checkAuthUsers } from "@utils/auth"
+import { readEnvOr } from "@utils/env"
+import { queryRequiredElement } from "@utils/dom"
+import { createNotificationController } from "@utils/notification"
+import { formatCurrency } from "@utils/format"
+import { normalizeBoolean, normalizeNumber, normalizeString, unwrapCollection } from "@utils/normalize"
 import { logoutUser } from "@utils/localStorage"
 import type { ICategoryDTO } from "@models/Icategoria"
 import type { IProductDTO, IProductInputDTO } from "@models/IProduct"
 
 type ModalMode = "create" | "edit"
-type NotificationVariant = "success" | "error" | "info"
-
-type EnvRecord = { [key: string]: string | undefined }
 
 type ProductRecord = Record<string, unknown>
 
@@ -17,44 +19,28 @@ type AvailabilityChangeResult = {
   message?: string
 }
 
-const envRecord = ((import.meta as unknown as { env?: EnvRecord }).env) ?? {}
-
-const PRODUCTS_API_URL = envRecord.VITE_API_URL_PRODUCTS ?? ""
-const CATEGORIES_API_URL = envRecord.VITE_API_URL_CATEGORIES ?? ""
+const PRODUCTS_API_URL = readEnvOr("VITE_API_URL_PRODUCTS", "")
+const CATEGORIES_API_URL = readEnvOr("VITE_API_URL_CATEGORIES", "")
 
 const DEFAULT_PRODUCT_IMAGE = "/src/public/images/dragoncito.png"
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-})
-
-const getElement = <T extends Element>(selector: string): T => {
-  const element = document.querySelector<T>(selector)
-  if (!element) {
-    throw new Error(`No se encontró el elemento requerido: ${selector}`)
-  }
-  return element
-}
-
-const productsTableBody = getElement<HTMLTableSectionElement>("#products-table-body")
-const notification = getElement<HTMLDivElement>("#notification")
-const productModal = getElement<HTMLDialogElement>("#product-modal")
-const productForm = getElement<HTMLFormElement>("#product-form")
-const productModalTitle = getElement<HTMLHeadingElement>("#product-modal-title")
-const productModalDescription = getElement<HTMLParagraphElement>("#product-modal-description")
-const productNameInput = getElement<HTMLInputElement>("#product-name")
-const productDescriptionInput = getElement<HTMLTextAreaElement>("#product-description")
-const productPriceInput = getElement<HTMLInputElement>("#product-price")
-const productStockInput = getElement<HTMLInputElement>("#product-stock")
-const productCategorySelect = getElement<HTMLSelectElement>("#product-category")
-const productImageInput = getElement<HTMLInputElement>("#product-image")
-const productAvailableInput = getElement<HTMLInputElement>("#product-available")
-const productFormError = getElement<HTMLDivElement>("#product-form-error")
-const productSubmitButton = getElement<HTMLButtonElement>("#product-submit-button")
-const productCancelButton = getElement<HTMLButtonElement>("#product-cancel-button")
-const productModalClose = getElement<HTMLButtonElement>("#product-modal-close")
-const newProductButton = getElement<HTMLButtonElement>("#new-product-button")
+const productsTableBody = queryRequiredElement<HTMLTableSectionElement>("#products-table-body")
+const notification = queryRequiredElement<HTMLDivElement>("#notification")
+const productModal = queryRequiredElement<HTMLDialogElement>("#product-modal")
+const productForm = queryRequiredElement<HTMLFormElement>("#product-form")
+const productModalTitle = queryRequiredElement<HTMLHeadingElement>("#product-modal-title")
+const productModalDescription = queryRequiredElement<HTMLParagraphElement>("#product-modal-description")
+const productNameInput = queryRequiredElement<HTMLInputElement>("#product-name")
+const productDescriptionInput = queryRequiredElement<HTMLTextAreaElement>("#product-description")
+const productPriceInput = queryRequiredElement<HTMLInputElement>("#product-price")
+const productStockInput = queryRequiredElement<HTMLInputElement>("#product-stock")
+const productCategorySelect = queryRequiredElement<HTMLSelectElement>("#product-category")
+const productImageInput = queryRequiredElement<HTMLInputElement>("#product-image")
+const productAvailableInput = queryRequiredElement<HTMLInputElement>("#product-available")
+const productFormError = queryRequiredElement<HTMLDivElement>("#product-form-error")
+const productSubmitButton = queryRequiredElement<HTMLButtonElement>("#product-submit-button")
+const productCancelButton = queryRequiredElement<HTMLButtonElement>("#product-cancel-button")
+const productModalClose = queryRequiredElement<HTMLButtonElement>("#product-modal-close")
+const newProductButton = queryRequiredElement<HTMLButtonElement>("#new-product-button")
 
 const loadingState = document.getElementById("loading-state") as HTMLDivElement | null
 const errorState = document.getElementById("error-state") as HTMLDivElement | null
@@ -62,28 +48,14 @@ const errorMessage = document.getElementById("error-message") as HTMLParagraphEl
 const retryButton = document.getElementById("retry-button") as HTMLButtonElement | null
 const logoutButton = document.getElementById("logout-button") as HTMLButtonElement | null
 
+const { reset: resetNotification, show: showNotification } = createNotificationController(notification)
+
 let products: IProductDTO[] = []
 let categories: ICategoryDTO[] = []
 let modalMode: ModalMode = "create"
 let editingProductId: number | null = null
 let editingInitialAvailability = true
 let pendingCategorySelection: { id: number | null; name: string } | null = null
-
-const resetNotification = () => {
-  notification.textContent = ""
-  notification.classList.remove(
-    "notification--visible",
-    "notification--success",
-    "notification--error",
-    "notification--info",
-  )
-}
-
-const showNotification = (message: string, variant: NotificationVariant) => {
-  notification.textContent = message
-  notification.classList.remove("notification--success", "notification--error", "notification--info")
-  notification.classList.add("notification--visible", `notification--${variant}`)
-}
 
 const showLoading = () => {
   if (loadingState) {
@@ -220,20 +192,8 @@ const openModal = (mode: ModalMode, product?: IProductDTO) => {
 }
 
 const parseNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      return null
-    }
-    const parsed = Number(trimmed)
-    if (Number.isFinite(parsed)) {
-      return parsed
-    }
-  }
-  return null
+  const normalized = normalizeNumber(value)
+  return normalized ?? null
 }
 
 const parseInteger = (value: unknown): number | null => {
@@ -246,78 +206,21 @@ const parseInteger = (value: unknown): number | null => {
 }
 
 const parseBoolean = (value: unknown): boolean | null => {
-  if (typeof value === "boolean") {
-    return value
-  }
-  if (typeof value === "number") {
-    if (value === 1) return true
-    if (value === 0) return false
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase()
-    if (!normalized) {
-      return null
-    }
-    if (["true", "activo", "activa", "disponible", "habilitado", "habilitada", "sí", "si", "1"].includes(normalized)) {
-      return true
-    }
-    if (["false", "inactivo", "inactiva", "no disponible", "deshabilitado", "deshabilitada", "no", "0"].includes(normalized)) {
-      return false
-    }
-  }
-  return null
+  const normalized = normalizeBoolean(value)
+  return normalized ?? null
 }
 
 const parseId = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
-    return value
+  const normalized = normalizeNumber(value)
+  if (normalized === undefined || !Number.isInteger(normalized) || normalized < 0) {
+    return null
   }
-  if (typeof value === "string") {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isInteger(parsed) && parsed >= 0) {
-      return parsed
-    }
-  }
-  return null
+  return normalized
 }
 
 const readString = (value: unknown): string | null => {
-  if (typeof value === "string") {
-    const trimmed = value.trim()
-    return trimmed.length ? trimmed : null
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value)
-  }
-  return null
-}
-
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>
-    const candidates = [
-      "data",
-      "items",
-      "results",
-      "content",
-      "productos",
-      "producto",
-      "records",
-    ]
-    for (const key of candidates) {
-      const candidate = record[key]
-      if (Array.isArray(candidate)) {
-        return candidate
-      }
-      if (candidate && typeof candidate === "object") {
-        return [candidate]
-      }
-    }
-  }
-  return []
+  const normalized = normalizeString(value)
+  return normalized ?? null
 }
 
 const adaptProduct = (value: unknown): IProductDTO | null => {
@@ -386,12 +289,12 @@ const adaptProduct = (value: unknown): IProductDTO | null => {
 }
 
 const adaptProducts = (payload: unknown): IProductDTO[] => {
-  const collection = unwrapCollection(payload)
+  const collection = unwrapCollection(payload, { unwrapNestedObject: true })
   return collection.map((item) => adaptProduct(item)).filter((item): item is IProductDTO => Boolean(item))
 }
 
 const adaptCategories = (payload: unknown): ICategoryDTO[] => {
-  const collection = unwrapCollection(payload)
+  const collection = unwrapCollection(payload, { unwrapNestedObject: true })
   return collection
     .map((item) => {
       if (!item || typeof item !== "object") {
@@ -452,13 +355,6 @@ const getCategoryNameById = (categoryId: number | null, fallback: string): strin
   return match ? match.nombre : fallback
 }
 
-const formatPrice = (value: number): string => {
-  if (!Number.isFinite(value)) {
-    return currencyFormatter.format(0)
-  }
-  return currencyFormatter.format(value)
-}
-
 const createProductRow = (product: IProductDTO): HTMLTableRowElement => {
   const row = document.createElement("tr")
 
@@ -495,7 +391,7 @@ const createProductRow = (product: IProductDTO): HTMLTableRowElement => {
 
   const priceCell = document.createElement("td")
   priceCell.className = "products-table__price"
-  priceCell.textContent = formatPrice(product.precio)
+  priceCell.textContent = formatCurrency(product.precio)
 
   const categoryCell = document.createElement("td")
   categoryCell.textContent = getCategoryNameById(product.categoriaId, product.categoriaNombre)

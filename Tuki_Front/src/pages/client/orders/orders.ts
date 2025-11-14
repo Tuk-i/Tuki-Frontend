@@ -1,5 +1,9 @@
 import { Get } from "../../../services/api.ts";
 import { checkAuthUsers } from "@utils/auth";
+import { readEnvOr } from "@utils/env";
+import { requireElementById } from "@utils/dom";
+import { formatCurrency, formatDate, formatDateLong } from "@utils/format";
+import { normalizeNumber, normalizeStatusText, normalizeString, unwrapCollection } from "@utils/normalize";
 import type { ClientOrder, OrderDeliveryInfo, OrderProduct, OrderStatus } from "@models/IOrders";
 import type { IUsuarioLogin } from "@models/IUsuarios/IUsuarioLogin";
 
@@ -44,7 +48,7 @@ const STATUS_CONFIG: Record<OrderStatus, StatusVisualConfig> = {
   },
 };
 
-const ORDERS_API_URL = import.meta.env.VITE_API_URL_CLIENT_ORDERS as string | undefined;
+const ORDERS_API_URL = readEnvOr("VITE_API_URL_CLIENT_ORDERS", "");
 
 const state: OrdersState = {
   orders: [],
@@ -53,78 +57,12 @@ const state: OrdersState = {
   selectedOrder: null,
 };
 
-const ordersListElement = document.getElementById("orders-list");
-const modalElement = document.getElementById("order-modal");
-const modalContentElement = document.getElementById("order-modal-content");
-const modalDialogElement = document.getElementById("order-modal-dialog");
-
-if (!(ordersListElement instanceof HTMLElement)) {
-  throw new Error("No se encontró el contenedor de pedidos en el DOM.");
-}
-
-if (!(modalElement instanceof HTMLDivElement)) {
-  throw new Error("No se encontró el modal de pedidos en el DOM.");
-}
-
-if (!(modalContentElement instanceof HTMLDivElement)) {
-  throw new Error("No se encontró el contenido del modal en el DOM.");
-}
-
-if (!(modalDialogElement instanceof HTMLElement)) {
-  throw new Error("No se encontró el diálogo del modal en el DOM.");
-}
+const ordersListElement = requireElementById<HTMLElement>("orders-list");
+const modalElement = requireElementById<HTMLDivElement>("order-modal");
+const modalContentElement = requireElementById<HTMLDivElement>("order-modal-content");
+const modalDialogElement = requireElementById<HTMLDialogElement>("order-modal-dialog");
 
 const closeTriggers = modalElement.querySelectorAll<HTMLElement>("[data-close]");
-
-const currencyFormatter = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "ARS",
-  minimumFractionDigits: 2,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-const dateTimeLongFormatter = new Intl.DateTimeFormat("es-AR", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
-
-const normalizeString = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed.length ? trimmed : undefined;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  return undefined;
-};
-
-const normalizeNumber = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string" && value.trim()) {
-    const normalized = value.replace(/,/g, ".");
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  return undefined;
-};
-
-const normalizeStatusText = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
 
 const adaptStatus = (value: unknown): OrderStatus => {
   const normalizedValue = normalizeString(value);
@@ -179,42 +117,6 @@ const adaptStatus = (value: unknown): OrderStatus => {
   return "pending";
 };
 
-const unwrapCollection = (value: unknown): unknown[] => {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const candidates = [
-      "orders",
-      "pedidos",
-      "data",
-      "items",
-      "results",
-      "content",
-      "lista",
-      "list",
-      "values",
-      "rows",
-      "orderList",
-    ];
-
-    for (const key of candidates) {
-      const candidate = record[key];
-      if (Array.isArray(candidate)) {
-        return candidate;
-      }
-    }
-
-    if ("id" in record || "numero" in record || "number" in record || "status" in record || "estado" in record) {
-      return [value];
-    }
-  }
-
-  return [];
-};
-
 const adaptProduct = (value: unknown, index: number): OrderProduct | null => {
   if (!value || typeof value !== "object") {
     return null;
@@ -254,7 +156,7 @@ const adaptProduct = (value: unknown, index: number): OrderProduct | null => {
 };
 
 const adaptProducts = (value: unknown): OrderProduct[] => {
-  const collection = unwrapCollection(value);
+  const collection = unwrapCollection(value, { includeSourceObject: true });
   return collection
     .map((item, index) => adaptProduct(item, index))
     .filter((item): item is OrderProduct => Boolean(item));
@@ -408,7 +310,7 @@ const adaptOrder = (value: unknown, index: number): ClientOrder | null => {
 };
 
 const adaptOrders = (value: unknown): ClientOrder[] => {
-  const collection = unwrapCollection(value);
+  const collection = unwrapCollection(value, { includeSourceObject: true });
   const parsed = collection
     .map((item, index) => adaptOrder(item, index))
     .filter((item): item is ClientOrder => Boolean(item));
@@ -424,28 +326,19 @@ const adaptOrders = (value: unknown): ClientOrder[] => {
   });
 };
 
-const formatCurrency = (value: number): string => {
-  const rounded = Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
-  return currencyFormatter.format(rounded);
+// Formatting helpers leveraging shared utilities
+const formatOrderCurrency = (value: number): string => formatCurrency(value);
+
+const formatDateShort = (value: string): string => {
+  const formatted = formatDate(value, { dateStyle: "medium", timeStyle: "short" });
+  return formatted || value;
 };
 
-const formatDate = (value: string): string => {
-  const timestamp = Date.parse(value);
-  if (!Number.isNaN(timestamp)) {
-    return dateTimeFormatter.format(new Date(timestamp));
-  }
-  return value;
-};
-
-const formatDateLong = (value: string | undefined): string | undefined => {
+const formatDateLongValue = (value: string | undefined): string | undefined => {
   if (!value) {
     return undefined;
   }
-  const timestamp = Date.parse(value);
-  if (!Number.isNaN(timestamp)) {
-    return dateTimeLongFormatter.format(new Date(timestamp));
-  }
-  return value;
+  return formatDateLong(value, { dateStyle: "long", timeStyle: "short" }) ?? value;
 };
 
 const getCurrentUser = (): IUsuarioLogin | null => {
@@ -590,7 +483,7 @@ const createOrderCard = (order: ClientOrder): HTMLElement => {
   const date = document.createElement("time");
   date.className = "order-card__date";
   date.dateTime = order.createdAt;
-  date.textContent = formatDate(order.createdAt);
+  date.textContent = formatDateShort(order.createdAt);
 
   const productsWrapper = document.createElement("div");
   productsWrapper.className = "order-card__products";
@@ -627,7 +520,7 @@ const createOrderCard = (order: ClientOrder): HTMLElement => {
 
   const totalValue = document.createElement("span");
   totalValue.className = "order-card__total-value";
-  totalValue.textContent = formatCurrency(order.total);
+  totalValue.textContent = formatOrderCurrency(order.total);
 
   footer.append(totalLabel, totalValue);
 
@@ -673,13 +566,13 @@ const createProductsSection = (order: ClientOrder): HTMLElement => {
 
       const quantity = document.createElement("span");
       quantity.className = "order-modal__product-quantity";
-      quantity.textContent = `${product.quantity} × ${formatCurrency(product.price)}`;
+      quantity.textContent = `${product.quantity} × ${formatOrderCurrency(product.price)}`;
 
       info.append(name, quantity);
 
       const total = document.createElement("span");
       total.className = "order-modal__product-total";
-      total.textContent = formatCurrency(product.price * product.quantity);
+      total.textContent = formatOrderCurrency(product.price * product.quantity);
 
       item.append(info, total);
       list.appendChild(item);
@@ -712,12 +605,12 @@ const createCostsSection = (order: ClientOrder): HTMLElement => {
     list.append(term, definition);
   };
 
-  addRow("Subtotal", formatCurrency(order.subtotal));
-  addRow("Envío", formatCurrency(order.shipping));
+  addRow("Subtotal", formatOrderCurrency(order.subtotal));
+  addRow("Envío", formatOrderCurrency(order.shipping));
   if (order.discount > 0) {
-    addRow("Descuentos", `- ${formatCurrency(order.discount)}`);
+    addRow("Descuentos", `- ${formatOrderCurrency(order.discount)}`);
   }
-  addRow("Total", formatCurrency(order.total), true);
+  addRow("Total", formatOrderCurrency(order.total), true);
 
   section.append(heading, list);
   return section;
@@ -756,7 +649,7 @@ const createDeliverySection = (delivery: OrderDeliveryInfo | undefined): HTMLEle
     addDetail("Referencia", delivery.reference);
     addDetail("Contacto", delivery.contactName);
     addDetail("Teléfono", delivery.contactPhone);
-    addDetail("Programado", formatDateLong(delivery.scheduledAt));
+    addDetail("Programado", formatDateLongValue(delivery.scheduledAt));
     addDetail("Notas", delivery.notes);
 
     if (!details.childElementCount) {
@@ -819,7 +712,7 @@ const renderModalContent = (order: ClientOrder) => {
   const date = document.createElement("time");
   date.className = "order-modal__date";
   date.dateTime = order.createdAt;
-  date.textContent = formatDateLong(order.createdAt) ?? formatDate(order.createdAt);
+  date.textContent = formatDateLongValue(order.createdAt) ?? formatDateShort(order.createdAt);
 
   meta.append(statusBadge, date);
   header.append(title, meta);
