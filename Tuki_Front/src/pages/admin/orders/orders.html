@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de pedidos</title>
+    <link rel="stylesheet" href="../home/style.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="admin-layout">
+      <aside class="admin-sidebar" aria-label="Navegación administrativa">
+        <div class="admin-sidebar__brand">
+          <span class="admin-sidebar__logo" aria-hidden="true">T</span>
+          <div class="admin-sidebar__title">
+            <p class="admin-sidebar__title-label">Tuki Store</p>
+            <p class="admin-sidebar__title-section">Administración</p>
+          </div>
+        </div>
+        <nav class="admin-sidebar__nav">
+          <a class="admin-sidebar__link" href="/src/pages/admin/home/home.html">
+            <span>Dashboard</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/categories/categories.html">
+            <span>Categorías</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/products/products.html">
+            <span>Productos</span>
+          </a>
+          <a
+            class="admin-sidebar__link admin-sidebar__link--active"
+            aria-current="page"
+            href="./orders.html"
+          >
+            <span>Pedidos</span>
+          </a>
+        </nav>
+        <div class="admin-sidebar__footer">
+          <button id="logout-button" class="admin-sidebar__logout" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main class="admin-content">
+        <header class="admin-content__header">
+          <div>
+            <p class="admin-content__eyebrow">Operaciones</p>
+            <h1 class="admin-content__title">Gestión de pedidos</h1>
+            <p class="admin-content__subtitle">
+              Supervisa y actualiza el estado de todos los pedidos de la tienda en un solo lugar.
+            </p>
+          </div>
+        </header>
+
+        <section class="admin-section" aria-labelledby="orders-heading">
+          <div class="orders-toolbar">
+            <div class="orders-toolbar__title">
+              <h2 id="orders-heading">Pedidos</h2>
+              <p>Controla el ciclo de vida de cada pedido y gestiona los cambios de estado.</p>
+              <p id="orders-count" class="orders-toolbar__count" aria-live="polite"></p>
+            </div>
+            <div class="orders-toolbar__filters">
+              <label class="orders-toolbar__label" for="status-filter">Filtrar por estado</label>
+              <div class="orders-toolbar__select">
+                <select id="status-filter" class="orders-toolbar__filter-select">
+                  <option value="all">Todos</option>
+                  <option value="pending">Pendientes</option>
+                  <option value="processing">En preparación</option>
+                  <option value="completed">Completados</option>
+                  <option value="cancelled">Cancelados</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="notification" class="notification" role="status" aria-live="polite"></div>
+
+          <section
+            id="orders-container"
+            class="orders-grid"
+            aria-live="polite"
+            aria-busy="false"
+          ></section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="order-modal" class="order-modal" aria-modal="true" aria-labelledby="order-modal-title">
+      <article class="order-modal__panel" role="document">
+        <header class="order-modal__header">
+          <div class="order-modal__header-info">
+            <h2 id="order-modal-title" class="order-modal__title">Detalle del pedido</h2>
+            <p id="order-modal-subtitle" class="order-modal__subtitle"></p>
+          </div>
+          <button id="order-modal-close" type="button" class="order-modal__close" aria-label="Cerrar">
+            &times;
+          </button>
+        </header>
+        <div id="order-modal-body" class="order-modal__body"></div>
+        <footer class="order-modal__footer">
+          <div class="order-modal__status">
+            <label class="order-modal__status-label" for="order-status-select">Estado del pedido</label>
+            <select id="order-status-select" class="order-modal__status-select">
+              <option value="pending">Pendiente</option>
+              <option value="processing">En preparación</option>
+              <option value="completed">Completado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
+          <div class="order-modal__actions">
+            <p id="order-modal-error" class="order-modal__error" role="alert"></p>
+            <div class="order-modal__buttons">
+              <button id="order-modal-cancel" type="button" class="button button--ghost">Cerrar</button>
+              <button id="order-modal-update" type="button" class="button">Actualizar estado</button>
+            </div>
+          </div>
+        </footer>
+      </article>
+    </dialog>
+
+    <script type="module" src="orders.ts"></script>
+  </body>
+</html>
