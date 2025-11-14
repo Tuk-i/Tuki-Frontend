@@ -113,7 +113,7 @@ export const Delete = async (
       }
     });
 
-    const data = await respuesta.text(); // puede ser string plano
+    const data = await respuesta.text();
 
     if (!respuesta.ok || data.includes("mensaje")) {
       return { error: { mensaje: data } };
