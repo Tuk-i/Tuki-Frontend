@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tuk-i Store | Detalle del producto</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module">
+      import "./productDetail.ts";
+    </script>
+  </head>
+  <body>
+    <main>
+      <header class="product-detail__header">
+        <button class="back-button" id="back-button" type="button">
+          <i class="ri-arrow-left-line" aria-hidden="true"></i>
+          <span>Volver</span>
+        </button>
+      </header>
+
+      <section class="product-detail__card" id="product-container" hidden>
+        <div class="product-detail__image">
+          <img id="product-image" alt="Imagen del producto" />
+        </div>
+
+        <div class="product-detail__info">
+          <span class="product-detail__status" id="product-status" data-state="info"></span>
+          <h1 class="product-detail__title" id="product-name"></h1>
+          <p class="product-detail__description" id="product-description"></p>
+          <p class="product-detail__price" id="product-price"></p>
+          <div class="product-detail__meta">
+            <span>
+              <i class="ri-archive-stack-line" aria-hidden="true"></i>
+              <span id="product-stock"></span>
+            </span>
+            <span>
+              <i class="ri-price-tag-3-line" aria-hidden="true"></i>
+              <span id="product-category"></span>
+            </span>
+          </div>
+
+          <div class="product-detail__actions">
+            <div>
+              <label class="sr-only" for="quantity-input">Cantidad</label>
+              <div class="quantity-picker">
+                <button type="button" id="quantity-decrease" aria-label="Disminuir cantidad">−</button>
+                <input
+                  type="number"
+                  id="quantity-input"
+                  min="1"
+                  step="1"
+                  value="1"
+                  inputmode="numeric"
+                  aria-live="polite"
+                />
+                <button type="button" id="quantity-increase" aria-label="Aumentar cantidad">+</button>
+              </div>
+            </div>
+
+            <button class="add-to-cart" id="add-to-cart" type="button">
+              <i class="ri-shopping-cart-2-line" aria-hidden="true"></i>
+              <span>Agregar al Carrito</span>
+            </button>
+            <p class="feedback-message" id="feedback-message" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="state-card" id="loading-state">
+        <div class="state-card__icon" aria-hidden="true">
+          <i class="ri-loader-4-line ri-spin"></i>
+        </div>
+        <h2 class="state-card__title">Cargando producto…</h2>
+        <p class="state-card__description">
+          Estamos preparando la información del producto para que puedas conocer todos sus detalles.
+        </p>
+      </section>
+
+      <section class="state-card" id="error-state" hidden>
+        <div class="state-card__icon" aria-hidden="true">
+          <i class="ri-error-warning-line"></i>
+        </div>
+        <h2 class="state-card__title">No pudimos cargar el producto</h2>
+        <p class="state-card__description" id="error-message"></p>
+        <button class="retry-button" id="retry-button" type="button">Reintentar</button>
+      </section>
+    </main>
+  </body>
+</html>
