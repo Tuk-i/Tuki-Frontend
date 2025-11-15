@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Administrativo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="admin-layout">
+      <aside class="admin-sidebar" aria-label="Navegación administrativa">
+        <div class="admin-sidebar__brand">
+          <span class="admin-sidebar__logo" aria-hidden="true">T</span>
+          <div class="admin-sidebar__title">
+            <p class="admin-sidebar__title-label">Tuki Store</p>
+            <p class="admin-sidebar__title-section">Administración</p>
+          </div>
+        </div>
+        <nav class="admin-sidebar__nav">
+          <a class="admin-sidebar__link admin-sidebar__link--active" href="./home.html">
+            <span>Dashboard</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/categories/categories.html">
+            <span>Categorías</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/products/products.html">
+            <span>Productos</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/orders/orders.html">
+            <span>Pedidos</span>
+          </a>
+        </nav>
+        <div class="admin-sidebar__footer">
+          <button id="logout-button" class="admin-sidebar__logout" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main class="admin-content">
+        <header class="admin-content__header">
+          <div>
+            <p class="admin-content__eyebrow">Resumen general</p>
+            <h1 class="admin-content__title">Panel administrativo</h1>
+            <p class="admin-content__subtitle">Controla métricas clave y accede rápidamente a cada módulo.</p>
+          </div>
+          <time id="last-updated" class="admin-content__timestamp" aria-live="polite"></time>
+        </header>
+
+        <section class="admin-section" aria-labelledby="stats-heading">
+          <div class="admin-section__header">
+            <h2 id="stats-heading">Indicadores principales</h2>
+            <p class="admin-section__description">Vista rápida de la actividad en el catálogo y los pedidos.</p>
+          </div>
+          <div class="stats-grid" id="stats-cards">
+            <article class="stat-card" data-stat="categories">
+              <header class="stat-card__header">
+                <p class="stat-card__label">Total de categorías</p>
+              </header>
+              <p id="total-categories" class="stat-card__value" aria-live="polite">--</p>
+              <p class="stat-card__helper">Categorías registradas en el sistema.</p>
+            </article>
+            <article class="stat-card" data-stat="products">
+              <header class="stat-card__header">
+                <p class="stat-card__label">Total de productos</p>
+              </header>
+              <p id="total-products" class="stat-card__value" aria-live="polite">--</p>
+              <p class="stat-card__helper">Inventario disponible y en revisión.</p>
+            </article>
+            <article class="stat-card" data-stat="orders">
+              <header class="stat-card__header">
+                <p class="stat-card__label">Total de pedidos</p>
+              </header>
+              <p id="total-orders" class="stat-card__value" aria-live="polite">--</p>
+              <p class="stat-card__helper">Pedidos recibidos en la plataforma.</p>
+            </article>
+            <article class="stat-card" data-stat="available-products">
+              <header class="stat-card__header">
+                <p class="stat-card__label">Productos disponibles</p>
+              </header>
+              <p id="available-products" class="stat-card__value" aria-live="polite">--</p>
+              <p class="stat-card__helper">Productos activos y con stock.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="admin-section" aria-labelledby="summary-heading">
+          <div class="admin-section__header">
+            <h2 id="summary-heading">Resumen detallado</h2>
+            <p class="admin-section__description">Profundiza en el estado de tus categorías, productos y pedidos.</p>
+          </div>
+          <div class="summary-grid">
+            <article class="summary-card" data-summary="categories">
+              <header class="summary-card__header">
+                <h3>Categorías activas</h3>
+                <span id="active-categories-count" class="summary-card__badge">--</span>
+              </header>
+              <p class="summary-card__description">Categorías disponibles para asignar productos.</p>
+              <ul id="active-categories-list" class="summary-list"></ul>
+            </article>
+            <article class="summary-card" data-summary="products">
+              <header class="summary-card__header">
+                <h3>Productos</h3>
+                <span id="products-availability" class="summary-card__badge">--</span>
+              </header>
+              <p class="summary-card__description">Disponibilidad actual de tu catálogo.</p>
+              <div class="summary-metrics">
+                <div class="summary-metric">
+                  <p class="summary-metric__label">Activos</p>
+                  <p id="active-products-count" class="summary-metric__value">--</p>
+                </div>
+                <div class="summary-metric">
+                  <p class="summary-metric__label">Inactivos</p>
+                  <p id="inactive-products-count" class="summary-metric__value">--</p>
+                </div>
+              </div>
+            </article>
+            <article class="summary-card" data-summary="orders">
+              <header class="summary-card__header">
+                <h3>Pedidos por estado</h3>
+              </header>
+              <p class="summary-card__description">Seguimiento detallado del flujo de pedidos.</p>
+              <ul id="orders-status-list" class="summary-list"></ul>
+            </article>
+          </div>
+        </section>
+
+    
+      </main>
+    </div>
+
+    <div id="loading-state" class="feedback feedback--loading" role="status" aria-live="polite" hidden>
+      <div class="feedback__spinner" aria-hidden="true"></div>
+      <p>Cargando información del panel...</p>
+    </div>
+
+    <div id="error-state" class="feedback feedback--error" role="alert" hidden>
+      <p id="error-message">No se pudieron cargar los datos.</p>
+      <button id="retry-button" type="button">Reintentar</button>
+    </div>
+
+    <script type="module" src="home.ts"></script>
+  </body>
+</html>

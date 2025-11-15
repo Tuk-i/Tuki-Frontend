@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tuk-i Store | Catálogo</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module">
+      import "./home.ts";
+    </script>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar__brand">
+        <button class="navbar__toggle" id="sidebar-toggle" aria-label="Abrir menú">
+          <i class="ri-menu-line"></i>
+        </button>
+        <a href="#" class="navbar__logo">Tuk-<span>i</span></a>
+      </div>
+      <div class="navbar__search">
+        <label for="search" class="sr-only">Buscar productos</label>
+        <input
+          type="search"
+          id="search"
+          placeholder="Buscar por nombre o descripción"
+          autocomplete="off"
+        />
+      </div>
+      <div class="navbar__actions">
+        <a class="navbar__link" href="../cart/cart.html">
+          <i class="ri-shopping-bag-fill"></i>
+          <span class="badge" id="cart-badge">0</span>
+        </a>
+        <a class="navbar__link" href="../../client/orders/orders.html">
+          <i class="ri-file-list-3-line" aria-hidden="true"></i>
+          <span class="sr-only">Mis pedidos</span>
+        </a>
+        <a class="navbar__link" href="../../auth/login/login.html" id="logout-button">
+          <i class="ri-logout-box-r-line" aria-hidden="true"></i>
+          <span class="sr-only">Cerrar sesión</span>
+        </a>
+      </div>
+    </nav>
+
+    <main class="catalog">
+      <aside class="catalog__sidebar" id="sidebar" aria-label="Categorías">
+        <div class="sidebar__header">
+          <h2>Categorías</h2>
+          <button class="sidebar__close" id="sidebar-close" aria-label="Cerrar menú">
+            <i class="ri-close-line"></i>
+          </button>
+        </div>
+        <ul class="sidebar__categories" id="category-list"></ul>
+      </aside>
+
+      <section class="catalog__content">
+        <header class="catalog__controls">
+          <div class="catalog__summary">
+            <h1>Catálogo</h1>
+            <p id="results-count">0 productos encontrados</p>
+          </div>
+          <div class="catalog__filters">
+            <label for="sort" class="catalog__filters-label">Ordenar por:</label>
+            <select id="sort" class="catalog__filters-select">
+              <option value="name-asc">Nombre (A - Z)</option>
+              <option value="name-desc">Nombre (Z - A)</option>
+              <option value="price-asc">Precio (Menor a Mayor)</option>
+              <option value="price-desc">Precio (Mayor a Menor)</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="catalog__grid" id="product-grid"></div>
+      </section>
+    </main>
+  </body>
+</html>

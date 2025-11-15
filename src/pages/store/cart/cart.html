@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tuk-i Store | Carrito</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="module">
+      import "./cart.ts";
+    </script>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar__brand">
+        <a href="../home/home.html" class="navbar__logo">Tuk-<span>i</span></a>
+      </div>
+      <div class="navbar__actions">
+        <a class="navbar__link" href="../cart/cart.html" aria-current="page">
+          <i class="ri-shopping-bag-fill"></i>
+          <span class="badge" id="cart-badge">0</span>
+        </a>
+        <a class="navbar__link" href="../../auth/login/login.html" id="logout-button">
+          <i class="ri-logout-box-r-line" aria-hidden="true"></i>
+          <span class="sr-only">Cerrar sesión</span>
+        </a>
+        <a class="navbar__link" href="../../client/orders/orders.html">
+          <i class="ri-file-list-3-line" aria-hidden="true"></i>
+          <span class="sr-only">Mis pedidos</span>
+        </a>
+      </div>
+    </nav>
+
+    <main class="cart">
+      <section class="cart__items">
+        <header class="cart__header">
+          <h1>Carrito de Compras</h1>
+          <p id="cart-item-count">0 productos</p>
+        </header>
+
+        <div class="cart__message" id="cart-confirmation" hidden></div>
+
+        <div class="cart__state" id="cart-loading-state" hidden>
+          <i class="ri-loader-4-line" aria-hidden="true"></i>
+          <p>Cargando carrito...</p>
+        </div>
+
+        <div class="cart__state cart__state--error" id="cart-error-state" hidden>
+          <i class="ri-error-warning-line" aria-hidden="true"></i>
+          <div>
+            <p id="cart-error-message">No pudimos cargar los productos.</p>
+            <button type="button" class="button" id="cart-retry-button">Reintentar</button>
+          </div>
+        </div>
+
+        <div class="cart__state cart__state--empty" id="cart-empty-state" hidden>
+          <i class="ri-shopping-bag-3-line" aria-hidden="true"></i>
+          <div>
+            <p>Tu carrito está vacío.</p>
+            <a class="button" href="../home/home.html">Ir a la tienda</a>
+          </div>
+        </div>
+
+        <div class="cart-list" id="cart-list"></div>
+      </section>
+
+      <aside class="cart__summary" id="summary-section">
+        <h2>Resumen del pedido</h2>
+        <dl class="summary">
+          <div class="summary__row">
+            <dt>Subtotal</dt>
+            <dd id="summary-subtotal">$0,00</dd>
+          </div>
+          <div class="summary__row">
+            <dt>Envío</dt>
+            <dd id="summary-shipping">$0,00</dd>
+          </div>
+          <div class="summary__row summary__row--total">
+            <dt>Total</dt>
+            <dd id="summary-total">$0,00</dd>
+          </div>
+        </dl>
+        <p class="summary__notice" id="summary-warning" hidden></p>
+        <div class="summary__actions">
+          <button type="button" class="button button--primary" id="checkout-button">
+            Proceder al Pago
+          </button>
+          <button type="button" class="button button--secondary" id="clear-cart-button">
+            Vaciar Carrito
+          </button>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module">
+  console.log("ENV desde el navegador:", import.meta.env);
+</script>
+    <div class="checkout-modal" id="checkout-modal" aria-hidden="true">
+      <div class="checkout-modal__backdrop" data-close="true"></div>
+      <div class="checkout-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+        <header class="checkout-modal__header">
+          <h2 class="checkout-modal__title" id="checkout-title">Finalizar compra</h2>
+          <button type="button" class="checkout-modal__close" data-close="true" aria-label="Cerrar">
+            <i class="ri-close-line"></i>
+          </button>
+        </header>
+        <form class="checkout-modal__form" id="checkout-form" novalidate>
+          <div class="checkout-modal__field">
+            <label for="checkout-phone">Teléfono</label>
+            <input type="tel" id="checkout-phone" name="phone" required placeholder="Ej: 261 123 1234" />
+          </div>
+          <div class="checkout-modal__field">
+            <label for="checkout-address">Dirección</label>
+            <input type="text" id="checkout-address" name="address" required placeholder="Calle, número y ciudad" />
+          </div>
+          <fieldset class="checkout-modal__field">
+            <legend>Método de pago</legend>
+            <label class="checkout-modal__option">
+              <input type="radio" name="payment" value="efectivo" checked />
+              <span>Efectivo</span>
+            </label>
+            <label class="checkout-modal__option">
+              <input type="radio" name="payment" value="tarjeta" />
+              <span>Tarjeta</span>
+            </label>
+            <label class="checkout-modal__option">
+              <input type="radio" name="payment" value="transferencia" />
+              <span>Transferencia</span>
+            </label>
+          </fieldset>
+          <div class="checkout-modal__field">
+            <label for="checkout-notes">Notas adicionales</label>
+            <textarea
+              id="checkout-notes"
+              name="notes"
+              placeholder="Información adicional para la entrega"
+              rows="3"
+            ></textarea>
+          </div>
+          <p class="checkout-modal__feedback" id="checkout-feedback"></p>
+          <div class="checkout-modal__actions">
+            <button type="button" class="button button--secondary" data-close="true">Cancelar</button>
+            <button type="submit" class="button button--primary">Confirmar pedido</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

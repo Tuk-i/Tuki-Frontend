@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión de categorías</title>
+    <link rel="stylesheet" href="../home/style.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="admin-layout">
+      <aside class="admin-sidebar" aria-label="Navegación administrativa">
+        <div class="admin-sidebar__brand">
+          <span class="admin-sidebar__logo" aria-hidden="true">T</span>
+          <div class="admin-sidebar__title">
+            <p class="admin-sidebar__title-label">Tuki Store</p>
+            <p class="admin-sidebar__title-section">Administración</p>
+          </div>
+        </div>
+        <nav class="admin-sidebar__nav">
+          <a class="admin-sidebar__link" href="/src/pages/admin/home/home.html">
+            <span>Dashboard</span>
+          </a>
+          <a class="admin-sidebar__link admin-sidebar__link--active" aria-current="page" href="./categories.html">
+            <span>Categorías</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/products/products.html">
+            <span>Productos</span>
+          </a>
+          <a class="admin-sidebar__link" href="/src/pages/admin/orders/orders.html">
+            <span>Pedidos</span>
+          </a>
+        </nav>
+        <div class="admin-sidebar__footer">
+          <button id="logout-button" class="admin-sidebar__logout" type="button">
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main class="admin-content">
+        <header class="admin-content__header">
+          <div>
+            <p class="admin-content__eyebrow">Catálogo</p>
+            <h1 class="admin-content__title">Gestión de categorías</h1>
+            <p class="admin-content__subtitle">
+              Administra y organiza las categorías disponibles en la tienda.
+            </p>
+          </div>
+        </header>
+
+        <section class="admin-section" aria-labelledby="categories-heading">
+          <div class="categories-toolbar">
+            <div class="categories-toolbar__title">
+              <h2 id="categories-heading">Categorías</h2>
+              <p>Controla y mantén al día la estructura del catálogo.</p>
+            </div>
+            <button id="new-category-button" class="button" type="button">
+              Nueva categoría
+            </button>
+          </div>
+
+          <div id="notification" class="notification" role="status" aria-live="polite"></div>
+
+          <div class="categories-table-wrapper" role="region" aria-live="polite" aria-labelledby="categories-heading">
+            <table class="categories-table">
+              <caption class="visually-hidden">Listado de categorías disponibles</caption>
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Imagen</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col">Descripción</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="categories-table-body">
+                <tr>
+                  <td class="categories-empty" colspan="5">Cargando categorías...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="category-modal" class="modal" aria-modal="true" aria-labelledby="category-modal-title">
+      <form id="category-form" class="modal__form" novalidate>
+        <div class="modal__header">
+          <div>
+            <h2 id="category-modal-title" class="modal__title">Nueva categoría</h2>
+            <p class="modal__description" id="category-modal-description">Completa la información para registrar una nueva categoría.</p>
+          </div>
+          <button type="button" class="modal__close" id="category-modal-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal__body">
+          <div class="modal__field">
+            <label class="modal__label" for="category-name">Nombre</label>
+            <input
+              id="category-name"
+              name="nombre"
+              class="modal__input"
+              type="text"
+              placeholder="Ingresa el nombre de la categoría"
+              maxlength="80"
+              required
+            />
+          </div>
+          <div class="modal__field">
+            <label class="modal__label" for="category-description">Descripción</label>
+            <textarea
+              id="category-description"
+              name="descripcion"
+              class="modal__textarea"
+              placeholder="Describe brevemente la categoría"
+              maxlength="250"
+              required
+            ></textarea>
+          </div>
+          <div class="modal__field">
+            <label class="modal__label" for="category-image">URL de imagen</label>
+            <input
+              id="category-image"
+              name="urlImagen"
+              class="modal__input"
+              type="url"
+              inputmode="url"
+              placeholder="https://ejemplo.com/imagen.jpg"
+              required
+            />
+          </div>
+
+          <div id="category-form-error" class="modal__error" role="alert"></div>
+
+          <div class="modal__actions">
+            <button type="button" class="button button--ghost" id="category-cancel-button">Cancelar</button>
+            <button type="submit" class="button" id="category-submit-button">Crear categoría</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="loading-state" class="feedback feedback--loading" role="status" aria-live="polite" hidden>
+      <div class="feedback__spinner" aria-hidden="true"></div>
+      <p>Cargando categorías...</p>
+    </div>
+
+    <div id="error-state" class="feedback feedback--error" role="alert" hidden>
+      <p id="error-message">No se pudieron cargar las categorías.</p>
+      <button id="retry-button" type="button">Reintentar</button>
+    </div>
+
+    <script type="module" src="categories.ts"></script>
+  </body>
+</html>
