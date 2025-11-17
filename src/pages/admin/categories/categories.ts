@@ -11,6 +11,8 @@ import type { ICategoryDTO, ICategoryInputDTO } from "@models/Icategoria"
 type ModalMode = "create" | "edit"
 
 const CATEGORIES_API_URL = readEnvOr("VITE_API_URL_CATEGORIES", "")
+const CATEGORIES_LIST_API_URL = `${CATEGORIES_API_URL}/activos`
+
 
 const DEFAULT_CATEGORY_IMAGE = "/src/public/images/dragoncito.png"
 
@@ -314,7 +316,7 @@ const handleDeleteCategory = async (category: ICategoryDTO) => {
 }
 
 const fetchCategories = async () => {
-  if (!CATEGORIES_API_URL) {
+  if (!CATEGORIES_LIST_API_URL) {
     showErrorState("No se configuró la URL para obtener las categorías.")
     renderCategories([])
     return
@@ -324,7 +326,7 @@ const fetchCategories = async () => {
   hideErrorState()
 
   try {
-    const { data, error } = await Get<unknown>(CATEGORIES_API_URL)
+    const { data, error } = await Get<unknown>(CATEGORIES_LIST_API_URL)
 
     if (error) {
       throw new Error(error?.mensaje ?? "No se pudieron obtener las categorías.")

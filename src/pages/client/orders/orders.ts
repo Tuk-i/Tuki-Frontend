@@ -72,20 +72,29 @@ const adaptStatus = (value: unknown): OrderStatus => {
 
   const normalized = normalizeStatusText(normalizedValue);
   const exactMatches: Record<string, OrderStatus> = {
+    // 👉 pendientes
     pending: "pending",
     pendiente: "pending",
     "pendiente de pago": "pending",
+
+    // 👉 tus estados del backend
+    confirmado: "processing", // CONFIRMADO => En preparación
+    terminado: "completed",   // TERMINADO  => Entregado / completado
+
+    // otros nombres que ya tenías
     processing: "processing",
     preparando: "processing",
     preparacion: "processing",
     "en preparacion": "processing",
     "en preparación": "processing",
     procesando: "processing",
+
     completed: "completed",
     completado: "completed",
     completo: "completed",
     entregado: "completed",
     finalizado: "completed",
+
     cancelled: "cancelled",
     cancelado: "cancelled",
     anulado: "cancelled",
@@ -100,9 +109,11 @@ const adaptStatus = (value: unknown): OrderStatus => {
     { keyword: "pend", status: "pending" },
     { keyword: "prep", status: "processing" },
     { keyword: "proc", status: "processing" },
+    { keyword: "confir", status: "processing" }, // CONFIRMADO
     { keyword: "complet", status: "completed" },
     { keyword: "entreg", status: "completed" },
     { keyword: "final", status: "completed" },
+    { keyword: "termin", status: "completed" },  // TERMINADO
     { keyword: "cancel", status: "cancelled" },
     { keyword: "anula", status: "cancelled" },
     { keyword: "rechaz", status: "cancelled" },
@@ -123,9 +134,18 @@ const adaptProduct = (value: unknown, index: number): OrderProduct | null => {
   }
 
   const record = value as Record<string, unknown>;
-  const name = normalizeString(
-    record.name ?? record.nombre ?? record.descripcion ?? record.title ?? record.producto ?? record.descripcionProducto,
-  ) ?? `Producto ${index + 1}`;
+
+  // 👇 acá agregamos nombreProducto
+  const name =
+    normalizeString(
+      record.name ??
+        record.nombre ??
+        record.nombreProducto ?? // <-- NUEVO
+        record.descripcion ??
+        record.title ??
+        record.producto ??
+        record.descripcionProducto,
+    ) ?? `Producto ${index + 1}`;
 
   const id =
     normalizeString(record.id ?? record.productId ?? record.codigo ?? record.uuid ?? record.sku) ??
@@ -136,13 +156,25 @@ const adaptProduct = (value: unknown, index: number): OrderProduct | null => {
     quantity = 1;
   }
 
-  const unitPrice = normalizeNumber(
-    record.unitPrice ?? record.price ?? record.precioUnitario ?? record.precio ?? record.valor ?? record.costo,
+  // 👇 usamos subtotal como total de la línea
+  const lineSubtotal = normalizeNumber(
+    record.subtotal ?? record.total ?? record.monto ?? record.totalLinea ?? record.importe,
   );
 
-  const lineTotal = normalizeNumber(record.total ?? record.monto ?? record.totalLinea ?? record.importe);
+  const unitPrice =
+    normalizeNumber(
+      record.unitPrice ??
+        record.price ??
+        record.precioUnitario ??
+        record.precio ??
+        record.valor ??
+        record.costo,
+    ) ??
+    (lineSubtotal !== undefined && quantity
+      ? lineSubtotal / quantity
+      : undefined);
 
-  const price = unitPrice ?? (lineTotal !== undefined ? lineTotal / quantity : 0);
+  const price = unitPrice ?? 0;
 
   const image = normalizeString(record.image ?? record.imagen ?? record.imageUrl ?? record.urlImagen);
 
@@ -239,13 +271,13 @@ const adaptDelivery = (value: unknown): OrderDeliveryInfo | undefined => {
   return hasInformation ? delivery : undefined;
 };
 
+const SHIPPING_FEE = 500;
+
 const adaptCosts = (record: Record<string, unknown>, products: OrderProduct[]) => {
   const subtotal = normalizeNumber(
     record.subtotal ?? record.subTotal ?? record.totalProductos ?? record.montoSubtotal ?? record.subtotalProductos,
   );
-  const shipping = normalizeNumber(
-    record.shipping ?? record.envio ?? record.costoEnvio ?? record.deliveryCost ?? record.costoDeEnvio,
-  );
+  const shipping = SHIPPING_FEE
   const discount = normalizeNumber(record.discount ?? record.descuento ?? record.bonificacion ?? record.promocion) ?? 0;
   const total = normalizeNumber(record.total ?? record.totalGeneral ?? record.montoTotal ?? record.precioTotal);
 
@@ -537,11 +569,36 @@ const createOrderCard = (order: ClientOrder): HTMLElement => {
   return card;
 };
 
+const createStatusMessage = (order: ClientOrder): HTMLElement => {
+  const wrapper = document.createElement("section");
+  wrapper.className = "order-modal__status-message";
+
+  const heading = document.createElement("h3");
+  heading.className = "order-modal__section-title";
+  heading.textContent = "Estado del pedido";
+
+  const message = document.createElement("p");
+  message.className = `order-modal__message order-modal__message--${order.status}`;
+  message.textContent = STATUS_CONFIG[order.status].message;
+
+  wrapper.append(heading, message);
+
+  if (order.message && order.message !== STATUS_CONFIG[order.status].message) {
+    const note = document.createElement("p");
+    note.className = "order-modal__message-note";
+    note.textContent = order.message;
+    wrapper.appendChild(note);
+  }
+
+  return wrapper;
+};
+
 const createProductsSection = (order: ClientOrder): HTMLElement => {
   const section = document.createElement("section");
   section.className = "order-modal__section";
 
   const heading = document.createElement("h3");
+  heading.className = "order-modal__section-title";
   heading.textContent = "Productos";
 
   const list = document.createElement("ul");
@@ -588,6 +645,7 @@ const createCostsSection = (order: ClientOrder): HTMLElement => {
   section.className = "order-modal__section";
 
   const heading = document.createElement("h3");
+  heading.className = "order-modal__section-title";
   heading.textContent = "Resumen de costos";
 
   const list = document.createElement("dl");
@@ -621,6 +679,7 @@ const createDeliverySection = (delivery: OrderDeliveryInfo | undefined): HTMLEle
   section.className = "order-modal__section";
 
   const heading = document.createElement("h3");
+  heading.className = "order-modal__section-title";
   heading.textContent = "Información de entrega";
 
   const details = document.createElement("div");
@@ -717,11 +776,13 @@ const renderModalContent = (order: ClientOrder) => {
   meta.append(statusBadge, date);
   header.append(title, meta);
 
-  const message = document.createElement("p");
-  message.className = "order-modal__message";
-  message.textContent = order.message ?? STATUS_CONFIG[order.status].message;
-
-  fragment.append(header, message, createProductsSection(order), createCostsSection(order), createDeliverySection(order.delivery));
+  fragment.append(
+    header,
+    createStatusMessage(order),
+    createProductsSection(order),
+    createCostsSection(order),
+    createDeliverySection(order.delivery),
+  )
 
   modalContentElement.replaceChildren(fragment);
 };

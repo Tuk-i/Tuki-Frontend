@@ -135,13 +135,26 @@ const adaptProduct = (value: unknown): ProductSummary | null => {
   const name =
     normalizeString(record.name ?? record.nombre ?? record.titulo ?? record.descripcion ?? record.descripcionProducto) ??
     "Producto sin nombre"
+
   const stock = Math.max(
     0,
     Math.trunc(normalizeNumber(record.stock ?? record.existencias ?? record.cantidad ?? record.inventory) ?? 0),
   )
+
   const statusText = normalizeString(record.status ?? record.estado ?? record.state)
-  const availabilityFlag = normalizeBoolean(record.available ?? record.activo ?? record.habilitado ?? record.disponible ?? statusText)
-  const available = availabilityFlag ?? (statusText ? !/inactivo|agotado|deshabilitado/i.test(statusText) : stock > 0)
+  const availabilityFlag = normalizeBoolean(
+    record.available ?? record.activo ?? record.habilitado ?? record.disponible ?? statusText,
+  )
+
+  // 👇 Nuevo: leer el flag de eliminado
+  const eliminatedFlag = normalizeBoolean(record.eliminado ?? record.deleted ?? record.isDeleted)
+
+  let available = availabilityFlag ?? (statusText ? !/inactivo|agotado|deshabilitado/i.test(statusText) : stock > 0)
+
+  // 👇 Si está eliminado, NO se considera disponible
+  if (eliminatedFlag === true) {
+    available = false
+  }
 
   if (!id) {
     return null
@@ -162,6 +175,36 @@ const adaptProductsResponse = (value: unknown): ProductSummary[] => {
     .filter((item): item is ProductSummary => Boolean(item))
 }
 
+const fetchProductsForDashboard = async (): Promise<ProductSummary[]> => {
+  if (!PRODUCTS_API_URL) {
+    return []
+  }
+
+  const allResponse = await Get<unknown>(PRODUCTS_API_URL)
+  if (allResponse.error) {
+    throw new Error(allResponse.error.mensaje ?? "No se pudieron obtener los productos.")
+  }
+
+  const allProducts = adaptProductsResponse(allResponse.data)
+
+  let eliminatedIds = new Set<string>()
+
+  try {
+    const eliminatedResponse = await Get<unknown>(`${PRODUCTS_API_URL}/eliminados`)
+    if (!eliminatedResponse.error && eliminatedResponse.data !== undefined) {
+      const eliminatedProducts = adaptProductsResponse(eliminatedResponse.data)
+      eliminatedIds = new Set(eliminatedProducts.map((item) => item.id))
+    }
+  } catch (error) {
+    console.warn("No se pudieron obtener los productos eliminados para el dashboard", error)
+  }
+
+  
+  return allProducts.map((product) => ({
+    ...product,
+    available: eliminatedIds.has(product.id) ? false : product.available,
+  }))
+}
 const adaptOrder = (value: unknown): OrderSummary | null => {
   if (!value || typeof value !== "object") {
     return null
@@ -428,10 +471,10 @@ const loadDashboard = async (): Promise<void> => {
     clearCardError(ordersSummaryCard)
 
     const [categoriesResult, productsResult, ordersResult] = await Promise.allSettled([
-      fetchCollection<CategorySummary>(CATEGORIES_API_URL, adaptCategoriesResponse),
-      fetchCollection<ProductSummary>(PRODUCTS_API_URL, adaptProductsResponse),
-      fetchCollection<OrderSummary>(ORDERS_API_URL, adaptOrdersResponse),
-    ])
+  fetchCollection<CategorySummary>(CATEGORIES_API_URL, adaptCategoriesResponse),
+  fetchProductsForDashboard(),
+  fetchCollection<OrderSummary>(ORDERS_API_URL, adaptOrdersResponse),
+])
 
     const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : []
     const products = productsResult.status === "fulfilled" ? productsResult.value : []

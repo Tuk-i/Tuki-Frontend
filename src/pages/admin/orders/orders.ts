@@ -50,6 +50,15 @@ const ORDERS_API_URL = adminOrdersUrl ?? clientOrdersUrl ?? ""
 const ORDER_STATUS_API_URL = readEnvOr("VITE_API_URL_ADMIN_ORDER_STATUS", ORDERS_API_URL)
 const ORDER_STATUS_METHOD = readEnvOr("VITE_API_ADMIN_ORDER_STATUS_METHOD", "PATCH").toUpperCase()
 
+type EstadoBackend = "PENDIENTE" | "CONFIRMADO" | "CANCELADO" | "TERMINADO"
+
+const ORDER_STATUS_API_VALUES: Record<OrderStatus, EstadoBackend> = {
+  pending: "PENDIENTE",
+  processing: "CONFIRMADO", // En preparación
+  completed: "TERMINADO",
+  cancelled: "CANCELADO",
+}
+
 const STATUS_CONFIG: Record<OrderStatus, StatusVisualConfig> = {
   pending: {
     label: "Pendiente",
@@ -109,25 +118,31 @@ const adaptStatus = (value: unknown): OrderStatus => {
 
   const normalized = normalizeStatusText(normalizedValue)
   const exactMatches: Record<string, OrderStatus> = {
-    pending: "pending",
-    pendiente: "pending",
-    "pendiente de pago": "pending",
-    processing: "processing",
-    preparando: "processing",
-    preparacion: "processing",
-    "en preparacion": "processing",
-    "en preparación": "processing",
-    procesando: "processing",
-    completed: "completed",
-    completado: "completed",
-    completo: "completed",
-    entregado: "completed",
-    finalizado: "completed",
-    cancelled: "cancelled",
-    cancelado: "cancelled",
-    anulado: "cancelled",
-    rechazado: "cancelled",
-  }
+  pending: "pending",
+  pendiente: "pending",
+  "pendiente de pago": "pending",
+
+  confirmado: "processing",
+  terminado: "completed",
+
+  processing: "processing",
+  preparando: "processing",
+  preparacion: "processing",
+  "en preparacion": "processing",
+  "en preparación": "processing",
+  procesando: "processing",
+
+  completed: "completed",
+  completado: "completed",
+  completo: "completed",
+  entregado: "completed",
+  finalizado: "completed",
+
+  cancelled: "cancelled",
+  cancelado: "cancelled",
+  anulado: "cancelled",
+  rechazado: "cancelled",
+}
 
   if (normalized in exactMatches) {
     return exactMatches[normalized]
@@ -171,17 +186,48 @@ const adaptProducts = (value: unknown): OrderProduct[] => {
       }
 
       const record = item as Record<string, unknown>
+
       const id = normalizeString(record.id ?? record.productId ?? record.codigo ?? record.sku ?? index)
-      const name = normalizeString(record.name ?? record.nombre ?? record.titulo ?? record.productName)
+
+      const name = normalizeString(
+        record.name ??
+          record.nombre ??
+          record.titulo ??
+          record.productName ??
+          record.nombreProducto // 👈 súper importante para tu back
+      )
+
       const quantity = normalizeNumber(record.quantity ?? record.cantidad ?? record.qty ?? 1) ?? 1
-      const price = normalizeNumber(record.price ?? record.precio ?? record.valor ?? record.unitPrice ?? record.precioUnitario) ?? 0
+
+      // Intentamos leer precio unitario
+      let price =
+        normalizeNumber(
+          record.price ??
+            record.precio ??
+            record.valor ??
+            record.unitPrice ??
+            record.precioUnitario,
+        ) ?? undefined
+
+      // Si no viene precio, calculamos precio = subtotal / cantidad
+      if (price == null) {
+        const lineSubtotal = normalizeNumber(
+          record.subtotal ?? record.montoSubtotal ?? record.totalLinea ?? record.importe,
+        )
+        if (lineSubtotal != null) {
+          price = lineSubtotal / quantity
+        } else {
+          price = 0
+        }
+      }
+
       const imageUrl = normalizeString(record.image ?? record.imagen ?? record.thumbnail ?? record.foto)
 
       const product: OrderProduct = {
         id: id ?? `producto-${index}`,
         name: name ?? "Producto sin nombre",
         quantity,
-        price,
+        price: Number.isFinite(price) ? price : 0,
       }
 
       if (imageUrl) {
@@ -239,18 +285,25 @@ const adaptCustomer = (record: Record<string, unknown>): OrderCustomerInfo => {
     customerRaw && typeof customerRaw === "object" ? (customerRaw as Record<string, unknown>) : record
 
   const firstName = normalizeString(
-    customerRecord.firstName ?? customerRecord.nombre ?? customerRecord.name ?? customerRecord.primerNombre,
+    customerRecord.firstName ??
+      customerRecord.nombre ??
+      customerRecord.name ??
+      customerRecord.primerNombre ??
+      record.nombreUsuario // 👈 viene del back
   )
+
   const lastName = normalizeString(
     customerRecord.lastName ?? customerRecord.apellido ?? customerRecord.surname ?? customerRecord.segundoNombre,
   )
+
   const fullNameCandidate = normalizeString(
     customerRecord.fullName ??
       customerRecord.displayName ??
       customerRecord.razonSocial ??
       record.customerName ??
       record.nombreCliente ??
-      record.nombre,
+      record.nombre ??
+      record.nombreUsuario // 👈 fallback
   )
 
   const name = [firstName, lastName].filter(Boolean).join(" ") || fullNameCandidate || "Cliente sin nombre"
@@ -345,21 +398,13 @@ const adaptNotes = (record: Record<string, unknown>): string | undefined =>
       record.notaCliente,
   )
 
-const adaptCosts = (record: Record<string, unknown>, products: OrderProduct[]) => {
-  const subtotal = normalizeNumber(
-    record.subtotal ?? record.subTotal ?? record.totalProductos ?? record.montoSubtotal ?? record.subtotalProductos,
-  )
-  const shipping = normalizeNumber(
-    record.shipping ?? record.envio ?? record.costoEnvio ?? record.deliveryCost ?? record.costoDeEnvio,
-  )
-  const discount = normalizeNumber(record.discount ?? record.descuento ?? record.bonificacion ?? record.promocion) ?? 0
-  const total = normalizeNumber(record.total ?? record.totalGeneral ?? record.montoTotal ?? record.precioTotal)
+  const SHIPPING_FEE = 500
 
-  const computedSubtotal = subtotal ?? computeProductsSubtotal(products)
-  const computedShipping = shipping ?? 0
-  const computedTotal = total ?? computedSubtotal + computedShipping - discount
-  const computedDiscount =
-    discount !== undefined ? discount : Math.max(0, computedSubtotal + computedShipping - computedTotal)
+const adaptCosts = (_record: Record<string, unknown>, products: OrderProduct[]) => {
+  const computedSubtotal = computeProductsSubtotal(products)
+  const computedShipping = SHIPPING_FEE
+  const computedDiscount = 0
+  const computedTotal = computedSubtotal + computedShipping - computedDiscount
 
   return {
     subtotal: computedSubtotal,
@@ -917,15 +962,31 @@ const updateOrderStatus = async (order: AdminOrder, newStatus: OrderStatus) => {
     return
   }
 
+  // El back espera un Long como ID de pedido
+  const pedidoId = Number(order.id)
+  if (!Number.isFinite(pedidoId)) {
+    elements.orderModalError.textContent = "El ID del pedido no es válido."
+    return
+  }
+
+  const apiStatus = ORDER_STATUS_API_VALUES[newStatus]
+
   try {
     setModalLoading(true)
     elements.orderModalError.textContent = ""
 
-    const endpoint = buildOrderStatusEndpoint(ORDER_STATUS_API_URL, order.id, newStatus)
+    // 👉 OJO: la URL es fija: /api/pedidos/estado
+    const endpoint = ORDER_STATUS_API_URL
+
+    console.log("Actualizando pedido", pedidoId, "=>", apiStatus, "URL:", endpoint)
+
     const response = await fetch(endpoint, {
       method: ORDER_STATUS_METHOD === "PUT" ? "PUT" : "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus, estado: newStatus }),
+      body: JSON.stringify({
+        pedidoId,        // coincide con PedidoUpdateDTO.pedidoId
+        nuevoEstado: apiStatus, // coincide con PedidoUpdateDTO.nuevoEstado
+      }),
     })
 
     let payload: unknown
@@ -933,11 +994,11 @@ const updateOrderStatus = async (order: AdminOrder, newStatus: OrderStatus) => {
     if (contentType.includes("application/json")) {
       payload = await response.json()
     } else {
-      const text = await response.text()
-      payload = text
+      payload = await response.text()
     }
 
     if (!response.ok) {
+      console.error("Error HTTP al actualizar estado:", response.status, payload)
       const message =
         typeof payload === "string"
           ? payload
@@ -979,6 +1040,7 @@ const updateOrderStatus = async (order: AdminOrder, newStatus: OrderStatus) => {
     setModalLoading(false)
   }
 }
+
 
 const loadOrders = async () => {
   resetNotification()
