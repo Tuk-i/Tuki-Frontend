@@ -395,7 +395,21 @@ const loadProducts = async () => {
   }
 
   const adapted = adaptProducts(data)
-  products = adapted
+
+  let eliminatedIds = new Set<string>()
+
+  try {
+    const eliminatedResponse = await Get<unknown>(`${PRODUCTS_API_URL}/eliminados`)
+    if (!eliminatedResponse.error && eliminatedResponse.data !== undefined) {
+      const eliminatedProducts = adaptProducts(eliminatedResponse.data)
+      eliminatedIds = new Set(eliminatedProducts.map((item) => item.id))
+    }
+  } catch (error) {
+    console.warn("No se pudieron obtener los productos eliminados", error)
+  }
+
+  products = adapted.filter((product) => !eliminatedIds.has(product.id) && product.available)
+
   isLoadingProducts = false
   loadErrorMessage = null
 
